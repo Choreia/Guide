@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Choreia Guide — 社内ルールに答えるAI</title>
+<meta name="description" content="社内ルールについて質問するだけ。AIがスプレッドシートのルール集から回答。不確定な回答は蓄積して育てるFAQ。">
+<meta property="og:title" content="Choreia Guide — 社内ルールに答えるAI">
+<meta property="og:description" content="社内ルールについて質問するだけ。AIがスプレッドシートのルール集から回答。">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://choreia.github.io/Guide/">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:site_name" content="Choreia">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Guide">
+<meta name="theme-color" content="#a0522d">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com https://apis.google.com; style-src 'self' 'unsafe-inline'; connect-src https://www.googleapis.com https://accounts.google.com https://oauth2.googleapis.com https://sheets.googleapis.com https://generativelanguage.googleapis.com; frame-src https://accounts.google.com; img-src 'self' https://*.googleusercontent.com data: blob:;">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",sans-serif;background:#faf8f5;color:#2c2418;line-height:1.6;min-height:100vh;-webkit-tap-highlight-color:transparent}
+.container{max-width:640px;margin:0 auto;padding:16px}
+@media(max-width:640px){.container{padding-bottom:100px}}
+
+/* Header */
+.header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.header h1{font-size:1.3em}.header h1 span{color:#a0522d}
+.auth-area{display:flex;align-items:center;gap:8px;font-size:.85em}
+.auth-area img{width:28px;height:28px;border-radius:50%;cursor:pointer}
+.btn-google{display:inline-flex;align-items:center;gap:8px;padding:8px 16px 8px 12px;background:#fff;color:#3c4043;border:1px solid #dadce0;border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;box-shadow:0 1px 2px rgba(60,64,67,.1);font-family:'Google Sans',Roboto,-apple-system,sans-serif}
+.btn-google:hover{background:#f7f8f8}.btn-google:active{background:#eee}
+.btn-signout{padding:4px 10px;background:#f3efe9;color:#8a7e6e;border:1px solid #d4cdc2;border-radius:6px;cursor:pointer;font-size:.8em;font-family:inherit}
+
+/* Org bar */
+.org-bar{display:flex;align-items:center;gap:10px;padding:12px 16px;background:#f5ece5;border-radius:12px;margin-bottom:16px;font-size:.9em}
+.org-bar .icon{font-size:1.3em}
+.org-bar .label{color:#8a7e6e;font-size:.8em}
+.org-bar .name{font-weight:600;color:#5a3e28}
+.org-bar .admin-badge{margin-left:auto;font-size:.7em;background:#a0522d;color:#fff;padding:2px 8px;border-radius:10px}
+
+/* Card */
+.card{background:#fff;border-radius:16px;padding:24px;margin-bottom:16px;box-shadow:0 1px 4px rgba(44,36,24,.06)}
+.card h2{font-size:1.05em;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #a0522d}
+
+/* Tabs */
+.tabs{display:flex;gap:0;margin-bottom:16px;background:#fff;border-radius:12px;padding:4px;box-shadow:0 1px 4px rgba(44,36,24,.06)}
+.tab{flex:1;padding:10px;text-align:center;border:none;background:none;border-radius:8px;font-size:.9em;font-weight:600;font-family:inherit;cursor:pointer;color:#8a7e6e;transition:all .2s}
+.tab.active{background:#a0522d;color:#fff}
+
+/* Status */
+.status{padding:12px 16px;border-radius:10px;font-size:.85em;margin-bottom:12px}
+.status.info{background:#f5ece5;color:#7a3d22}
+.status.success{background:#e8f5e9;color:#2e7d32}
+.status.error{background:#ffeef0;color:#c62828}
+
+/* Setup */
+.setup-section{margin-bottom:16px}
+.setup-section label{display:block;font-size:.85em;font-weight:600;color:#5a3e28;margin-bottom:6px}
+.setup-row{display:flex;gap:8px;margin-bottom:12px;align-items:center}
+.setup-row input,.setup-row select{flex:1;padding:10px 12px;border:1px solid #d4cdc2;border-radius:8px;font-size:.9em;font-family:inherit}
+.setup-row input:focus,.setup-row select:focus{outline:none;border-color:#a0522d}
+.btn-primary{padding:10px 20px;background:#a0522d;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:.9em;font-weight:600;font-family:inherit;white-space:nowrap}
+.btn-primary:hover{background:#8a4420}
+.btn-primary:disabled{opacity:.5;cursor:default}
+.btn-secondary{padding:8px 14px;background:#f5ece5;color:#7a3d22;border:1px solid #d4cdc2;border-radius:8px;cursor:pointer;font-size:.85em;font-family:inherit}
+.btn-secondary:hover{background:#ece6de}
+
+/* Drive folder picker */
+.folder-list{max-height:240px;overflow-y:auto;border:1px solid #d4cdc2;border-radius:8px;margin-bottom:12px}
+.folder-item{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;border-bottom:1px solid #f0ebe4}
+.folder-item:last-child{border-bottom:none}
+.folder-item:hover{background:#fdf5f0}
+.folder-item.selected{background:#f5ece5;font-weight:600}
+.folder-item .icon{font-size:1.2em}
+.breadcrumb{font-size:.8em;color:#8a7e6e;margin-bottom:8px;display:flex;flex-wrap:wrap;gap:4px}
+.breadcrumb a{color:#a0522d;cursor:pointer;text-decoration:none}
+.breadcrumb a:hover{text-decoration:underline}
+
+/* Sheet tabs */
+.sheet-tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.sheet-tab{padding:4px 12px;background:#f5ece5;color:#7a3d22;border-radius:16px;font-size:.75em;border:1px solid transparent}
+.sheet-tab.active{border-color:#a0522d;background:#fff;font-weight:600}
+
+/* Admin panel */
+.admin-panel{background:#fdf5f0;border:1px solid #ece6de;border-radius:12px;padding:16px;margin-bottom:16px}
+.admin-panel h3{font-size:.9em;color:#a0522d;margin-bottom:10px}
+.admin-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:.85em}
+.admin-row input{flex:1;padding:6px 10px;border:1px solid #d4cdc2;border-radius:6px;font-size:.85em;font-family:inherit}
+.admin-list{margin:8px 0}
+.admin-item{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:#fff;border-radius:6px;margin-bottom:4px;font-size:.85em}
+.admin-item .remove{background:none;border:none;color:#c62828;cursor:pointer;font-size:1em}
+
+/* Chat */
+.chat-area{min-height:300px;max-height:60vh;overflow-y:auto;margin-bottom:12px;padding:4px 0}
+.msg{margin-bottom:12px;display:flex;gap:8px}
+.msg.user{justify-content:flex-end}
+.msg.user .bubble{background:#a0522d;color:#fff;border-radius:16px 16px 4px 16px}
+.msg.ai .bubble{background:#f5ece5;color:#2c2418;border-radius:16px 16px 16px 4px}
+.bubble{padding:10px 14px;max-width:85%;font-size:.9em;line-height:1.6;word-break:break-word}
+.bubble.uncertain{border:2px dashed #e6a817}
+.uncertain-badge{display:inline-block;background:#fff3cd;color:#856404;font-size:.7em;padding:2px 8px;border-radius:8px;margin-top:6px}
+.saved-badge{display:inline-block;background:#e8f5e9;color:#2e7d32;font-size:.7em;padding:2px 8px;border-radius:8px;margin-top:4px}
+.msg.ai .avatar{width:28px;height:28px;border-radius:50%;background:#a0522d;color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;margin-top:2px}
+.typing .bubble::after{content:'...';animation:dots 1s infinite}
+@keyframes dots{0%,20%{content:'.'}40%{content:'..'}60%,100%{content:'...'}}
+
+/* Input */
+.input-area{display:flex;gap:8px}
+.input-area input{flex:1;padding:12px 16px;border:1px solid #d4cdc2;border-radius:24px;font-size:.95em;font-family:inherit;background:#fff}
+.input-area input:focus{outline:none;border-color:#a0522d}
+.input-area input:disabled{background:#f5f5f5}
+.btn-send{width:44px;height:44px;border-radius:50%;background:#a0522d;color:#fff;border:none;cursor:pointer;font-size:1.2em;display:flex;align-items:center;justify-content:center}
+.btn-send:hover{background:#8a4420}
+.btn-send:disabled{opacity:.4;cursor:default}
+
+/* Welcome */
+.welcome-screen{text-align:center;padding:60px 16px;color:#8a7e6e}
+.welcome-screen .icon{font-size:4em;margin-bottom:16px}
+.welcome-screen h2{color:#2c2418;margin-bottom:8px;font-size:1.4em}
+.welcome-screen p{font-size:.95em;margin-bottom:24px}
+
+.welcome-chat{text-align:center;padding:40px 16px;color:#8a7e6e}
+.welcome-chat .icon{font-size:3em;margin-bottom:12px}
+.welcome-chat h3{color:#2c2418;margin-bottom:8px}
+.welcome-chat p{font-size:.9em}
+.examples{display:flex;flex-direction:column;gap:8px;margin-top:16px}
+.example-btn{padding:10px 14px;background:#faf8f5;border:1px solid #d4cdc2;border-radius:12px;cursor:pointer;font-size:.85em;text-align:left;font-family:inherit;color:#5a5044;transition:all .15s}
+.example-btn:hover{background:#f5ece5;border-color:#a0522d}
+
+/* QA Log */
+.qa-log{margin-top:8px}
+.qa-item{padding:10px 0;border-bottom:1px solid #ece6de;font-size:.85em}
+.qa-item:last-child{border-bottom:none}
+.qa-q{font-weight:600;color:#5a3e28}
+.qa-a{color:#5a5044;margin-top:2px}
+.qa-status{display:inline-block;font-size:.75em;padding:1px 6px;border-radius:4px;margin-left:4px}
+.qa-status.pending{background:#fff3cd;color:#856404}
+.qa-status.confirmed{background:#e8f5e9;color:#2e7d32}
+
+/* Views */
+.view{display:none}
+.view.active{display:block}
+
+/* Loading */
+.loading-screen{text-align:center;padding:60px 16px}
+.spinner{width:40px;height:40px;border:3px solid #ece6de;border-top-color:#a0522d;border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 16px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+footer{text-align:center;padding:24px 16px;color:#8a7e6e;font-size:.8em}
+footer a{color:#a0522d;text-decoration:none}
+footer a:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1><span>Choreia</span> Guide</h1>
+    <div class="auth-area" id="authArea">
+      <button class="btn-google" id="btnLogin" onclick="doLogin()">
+        <svg width="18" height="18" viewBox="0 0 18 18"><path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/><path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/><path d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.997 8.997 0 000 9s.359 1.486.957 3.042l3.007-2.332z" fill="#FBBC05"/><path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/></svg>
+        Googleでログイン
+      </button>
+    </div>
+  </div>
+
+  <!-- Welcome (before login) -->
+  <div class="view active" id="viewWelcome">
+    <div class="welcome-screen">
+      <div class="icon">&#128218;</div>
+      <h2>社内ルールに答えるAI</h2>
+      <p>Googleスプレッドシートのルール集をもとに、<br>AIがあなたの質問に回答します。</p>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div class="view" id="viewLoading">
+    <div class="loading-screen">
+      <div class="spinner"></div>
+      <p>組織の設定を確認中...</p>
+    </div>
+  </div>
+
+  <!-- Setup (admin first-time) -->
+  <div class="view" id="viewSetup">
+    <div class="card">
+      <h2>初期設定</h2>
+      <p style="font-size:.85em;color:#5a5044;margin-bottom:16px">組織のルール集スプレッドシートを設定します。この設定は同じドメイン（<strong id="setupDomain"></strong>）のメンバー全員に適用されます。</p>
+
+      <div class="setup-section">
+        <label>1. 設定ファイルの保存先（共有ドライブ）</label>
+        <div id="driveList"></div>
+      </div>
+
+      <div class="setup-section" id="folderSection" style="display:none">
+        <label>2. フォルダを選択</label>
+        <div id="folderBreadcrumb" class="breadcrumb"></div>
+        <div id="folderList" class="folder-list"></div>
+        <button class="btn-primary" id="btnSelectFolder" onclick="confirmFolder()" style="display:none">このフォルダに設定を保存</button>
+      </div>
+
+      <div class="setup-section" id="sheetSection" style="display:none">
+        <label>3. ルール集スプレッドシートのURL</label>
+        <div class="setup-row">
+          <input type="text" id="setupSheetUrl" placeholder="GoogleスプレッドシートのURLを貼り付け">
+        </div>
+        <button class="btn-primary" onclick="completeSetup()">設定を完了</button>
+      </div>
+
+      <div id="setupStatus"></div>
+    </div>
+  </div>
+
+  <!-- Main view -->
+  <div class="view" id="viewMain">
+    <div class="org-bar" id="orgBar"></div>
+
+    <div class="tabs" id="mainTabs">
+      <button class="tab active" onclick="switchTab('chat')">質問する</button>
+      <button class="tab" onclick="switchTab('qa')">Q&A管理</button>
+      <button class="tab" onclick="switchTab('admin')" id="tabAdmin" style="display:none">設定</button>
+    </div>
+
+    <!-- Chat tab -->
+    <div class="view active" id="tabChat">
+      <div id="rulesStatus"></div>
+      <div class="sheet-tabs" id="sheetTabs"></div>
+      <div class="chat-area" id="chatArea">
+        <div class="welcome-chat" id="welcomeChat">
+          <div class="icon">&#128172;</div>
+          <h3>社内ルールについて聞いてください</h3>
+          <p>スプレッドシートの内容をもとにAIが回答します</p>
+          <div class="examples" id="examples"></div>
+        </div>
+      </div>
+      <div class="input-area">
+        <input type="text" id="chatInput" placeholder="例：有給の申請方法は？" onkeydown="if(event.key==='Enter')sendMessage()" disabled>
+        <button class="btn-send" id="btnSend" onclick="sendMessage()" disabled>&#10148;</button>
+      </div>
+    </div>
+
+    <!-- QA management tab -->
+    <div class="view" id="tabQA">
+      <div class="card">
+        <h2>未確定Q&A</h2>
+        <p style="font-size:.85em;color:#5a5044;margin-bottom:12px">AIが確信を持てなかった回答です。スプレッドシートの「Guide_QA」シートのD列に正解を入力すると、次回から確定回答として使われます。</p>
+        <div id="qaStatus"></div>
+        <div class="qa-log" id="qaLog"></div>
+        <button class="btn-secondary" onclick="loadSpreadsheetData()" style="margin-top:12px">最新に更新</button>
+      </div>
+    </div>
+
+    <!-- Admin tab -->
+    <div class="view" id="tabAdminContent">
+      <div class="card">
+        <h2>組織設定</h2>
+        <div class="admin-panel">
+          <h3>ルール集スプレッドシート</h3>
+          <div class="setup-row">
+            <input type="text" id="adminSheetUrl" placeholder="GoogleスプレッドシートのURL">
+            <button class="btn-primary" onclick="updateSheetUrl()">変更</button>
+          </div>
+        </div>
+        <div class="admin-panel">
+          <h3>管理者</h3>
+          <div class="admin-list" id="adminList"></div>
+          <div class="admin-row">
+            <input type="email" id="newAdminEmail" placeholder="メールアドレスを追加">
+            <button class="btn-secondary" onclick="addAdmin()">追加</button>
+          </div>
+        </div>
+        <div class="admin-panel">
+          <h3>危険な操作</h3>
+          <button class="btn-secondary" onclick="resetOrg()" style="color:#c62828;border-color:#c62828">組織設定をリセット</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <a href="https://choreia.github.io/">Choreia</a> — 無料・オープンソースのビジネスツール
+</footer>
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script>
+'use strict';
+
+// ---- Config ----
+var CLIENT_ID='267211003481-pck8amdusjfedr9gvvlje4uke53ig4lh.apps.googleusercontent.com';
+var SCOPES='https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/generative-language.retriever';
+var CONFIG_FILENAME='choreia-guide-config.json';
+var QA_SHEET='Guide_QA';
+var BLOCKED_DOMAINS=['gmail.com','googlemail.com','yahoo.co.jp','yahoo.com','hotmail.com','outlook.com','outlook.jp','icloud.com','aol.com','protonmail.com','zoho.com','mail.com','yandex.com','live.com','live.jp','msn.com','me.com','mac.com'];
+var GEMINI_MODELS=['gemini-2.5-flash','gemini-2.0-flash','gemini-1.5-flash'];
+
+// ---- State ----
+var tokenClient=null,accessToken=null;
+var currentUser={email:'',name:'',domain:'',photo:''};
+var orgConfig=null; // {domain,admin,admins,spreadsheetId,spreadsheetUrl,folderId,driveId,driveName,createdAt}
+var rulesText='';
+var sheetNames=[];
+var confirmedQA=[];
+var chatHistory=[];
+var qaSheetEnsured=false;
+
+// ---- Setup state ----
+var setupDriveId='',setupDriveName='',setupFolderId='',setupFolderName='';
+var folderStack=[]; // breadcrumb stack
+
+// ---- Auth ----
+function initGIS(){
+  tokenClient=google.accounts.oauth2.initTokenClient({
+    client_id:CLIENT_ID,scope:SCOPES,callback:onTokenResponse
+  });
+  var saved=sessionStorage.getItem('choreia_guide_token');
+  if(saved){accessToken=saved;restoreSession();}
+}
+function doLogin(){
+  if(!tokenClient)return;
+  tokenClient.requestAccessToken({prompt:''});
+}
+async function onTokenResponse(resp){
+  if(resp.error)return;
+  accessToken=resp.access_token;
+  sessionStorage.setItem('choreia_guide_token',accessToken);
+  await onAuthenticated();
+}
+async function restoreSession(){
+  try{
+    var r=await fetch('https://www.googleapis.com/oauth2/v3/userinfo',{headers:{Authorization:'Bearer '+accessToken}});
+    if(!r.ok)throw 0;
+    await onAuthenticated();
+  }catch(e){
+    sessionStorage.removeItem('choreia_guide_token');accessToken=null;
+  }
+}
+async function onAuthenticated(){
+  var r=await fetch('https://www.googleapis.com/oauth2/v3/userinfo',{headers:{Authorization:'Bearer '+accessToken}});
+  var u=await r.json();
+  currentUser={email:u.email,name:u.name,domain:u.email.split('@')[1],photo:u.picture||''};
+
+  // Block personal domains
+  if(isBlockedDomain(currentUser.domain)){
+    document.getElementById('authArea').innerHTML=
+      '<span style="color:#c62828;font-size:.85em">組織のGoogleアカウントでログインしてください</span>'+
+      '<button class="btn-signout" onclick="doSignout()">logout</button>';
+    return;
+  }
+
+  document.getElementById('authArea').innerHTML=
+    '<img src="'+currentUser.photo+'" alt="">'+
+    '<span>'+escHtml(currentUser.name)+'</span>'+
+    '<button class="btn-signout" onclick="doSignout()">logout</button>';
+
+  showView('viewLoading');
+  await discoverOrgConfig();
+}
+function isBlockedDomain(d){return BLOCKED_DOMAINS.indexOf(d.toLowerCase())>=0;}
+function doSignout(){
+  google.accounts.oauth2.revoke(accessToken);
+  accessToken=null;sessionStorage.removeItem('choreia_guide_token');
+  location.reload();
+}
+
+// ---- API helpers ----
+async function apiFetch(url,opts){
+  opts=opts||{};opts.headers=opts.headers||{};
+  opts.headers['Authorization']='Bearer '+accessToken;
+  var r=await fetch(url,opts);
+  if(!r.ok){var t=await r.text();throw new Error('API '+r.status+': '+t);}
+  return r.json();
+}
+function extractSpreadsheetId(url){
+  var m=url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+  return m?m[1]:url.trim();
+}
+
+// ---- Org config discovery (like choreia-photos) ----
+async function discoverOrgConfig(){
+  try{
+    // Search for config file across all drives
+    var q=encodeURIComponent("name='"+CONFIG_FILENAME+"' and mimeType='application/json' and trashed=false");
+    var searchUrl='https://www.googleapis.com/drive/v3/files?q='+q+'&fields=files(id,name,parents)&includeItemsFromAllDrives=true&supportsAllDrives=true&corpora=allDrives';
+    var result=await apiFetch(searchUrl);
+
+    for(var i=0;i<(result.files||[]).length;i++){
+      var f=result.files[i];
+      try{
+        var cfg=await apiFetch('https://www.googleapis.com/drive/v3/files/'+f.id+'?alt=media&supportsAllDrives=true');
+        if(cfg.domain===currentUser.domain){
+          orgConfig=cfg;
+          orgConfig._configFileId=f.id;
+          showMainView();
+          return;
+        }
+      }catch(e){/* skip unreadable configs */}
+    }
+    // No config found -> show setup
+    showView('viewSetup');
+    document.getElementById('setupDomain').textContent=currentUser.domain;
+    loadSharedDrives();
+  }catch(e){
+    showView('viewSetup');
+    document.getElementById('setupDomain').textContent=currentUser.domain;
+    loadSharedDrives();
+  }
+}
+
+// ---- Setup: shared drive & folder selection ----
+async function loadSharedDrives(){
+  try{
+    var drives=await apiFetch('https://www.googleapis.com/drive/v3/drives?pageSize=50');
+    var list=drives.drives||[];
+    if(list.length===0){
+      document.getElementById('driveList').innerHTML='<div class="status info">共有ドライブが見つかりません。Googleの管理者に共有ドライブの作成を依頼してください。</div>';
+      return;
+    }
+    var html='<div class="folder-list">';
+    list.forEach(function(d){
+      html+='<div class="folder-item" onclick="selectDrive(\''+d.id+'\',\''+escAttr(d.name)+'\')"><span class="icon">&#128193;</span><span>'+escHtml(d.name)+'</span></div>';
+    });
+    html+='</div>';
+    document.getElementById('driveList').innerHTML=html;
+  }catch(e){
+    document.getElementById('driveList').innerHTML='<div class="status error">'+escHtml(e.message)+'</div>';
+  }
+}
+
+async function selectDrive(driveId,driveName){
+  setupDriveId=driveId;setupDriveName=driveName;
+  setupFolderId=driveId;setupFolderName=driveName;
+  folderStack=[{id:driveId,name:driveName}];
+  document.getElementById('folderSection').style.display='';
+  await loadFolders(driveId);
+}
+
+async function loadFolders(parentId){
+  // Update breadcrumb
+  var bc=folderStack.map(function(f,i){
+    if(i===folderStack.length-1)return'<span>'+escHtml(f.name)+'</span>';
+    return'<a onclick="navToFolder('+i+')">'+escHtml(f.name)+'</a> /';
+  }).join(' ');
+  document.getElementById('folderBreadcrumb').innerHTML=bc;
+
+  try{
+    var q=encodeURIComponent("'"+parentId+"' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false");
+    var url='https://www.googleapis.com/drive/v3/files?q='+q+'&fields=files(id,name)&orderBy=name&driveId='+setupDriveId+'&corpora=drive&includeItemsFromAllDrives=true&supportsAllDrives=true&pageSize=100';
+    var result=await apiFetch(url);
+    var folders=result.files||[];
+
+    var html='';
+    folders.forEach(function(f){
+      html+='<div class="folder-item" onclick="openFolder(\''+f.id+'\',\''+escAttr(f.name)+'\')"><span class="icon">&#128193;</span><span>'+escHtml(f.name)+'</span></div>';
+    });
+    if(!folders.length)html='<div style="padding:16px;color:#8a7e6e;font-size:.85em;text-align:center">フォルダなし</div>';
+    document.getElementById('folderList').innerHTML=html;
+    document.getElementById('btnSelectFolder').style.display='';
+  }catch(e){
+    document.getElementById('folderList').innerHTML='<div class="status error">'+escHtml(e.message)+'</div>';
+  }
+}
+
+function openFolder(id,name){
+  folderStack.push({id:id,name:name});
+  setupFolderId=id;setupFolderName=name;
+  loadFolders(id);
+}
+function navToFolder(index){
+  folderStack=folderStack.slice(0,index+1);
+  var f=folderStack[folderStack.length-1];
+  setupFolderId=f.id;setupFolderName=f.name;
+  loadFolders(f.id);
+}
+
+function confirmFolder(){
+  document.getElementById('sheetSection').style.display='';
+}
+
+async function completeSetup(){
+  var url=document.getElementById('setupSheetUrl').value.trim();
+  if(!url){setStatus('setupStatus','スプレッドシートのURLを入力してください','error');return;}
+  var sid=extractSpreadsheetId(url);
+  if(!sid){setStatus('setupStatus','URLが正しくありません','error');return;}
+
+  setStatus('setupStatus','設定を保存中...','info');
+
+  try{
+    // Verify spreadsheet is accessible
+    await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+sid+'?fields=sheets(properties(title))');
+
+    // Create config file
+    var cfg={
+      domain:currentUser.domain,
+      admin:currentUser.email,
+      admins:[currentUser.email],
+      adminName:currentUser.name,
+      spreadsheetId:sid,
+      spreadsheetUrl:url,
+      folderId:setupFolderId,
+      folderName:setupFolderName,
+      driveId:setupDriveId,
+      driveName:setupDriveName,
+      createdAt:new Date().toISOString()
+    };
+    var meta=JSON.stringify({name:CONFIG_FILENAME,parents:[setupFolderId],mimeType:'application/json'});
+    var form=new FormData();
+    form.append('metadata',new Blob([meta],{type:'application/json'}));
+    form.append('file',new Blob([JSON.stringify(cfg,null,2)],{type:'application/json'}));
+
+    var r=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true',{
+      method:'POST',headers:{Authorization:'Bearer '+accessToken},body:form
+    });
+    if(!r.ok)throw new Error('Config save failed');
+    var created=await r.json();
+
+    orgConfig=cfg;
+    orgConfig._configFileId=created.id;
+    showMainView();
+  }catch(e){
+    setStatus('setupStatus','エラー: '+e.message,'error');
+  }
+}
+
+// ---- Main view ----
+async function showMainView(){
+  showView('viewMain');
+
+  // Org bar
+  var adminFlag=isAdmin()?'<span class="admin-badge">管理者</span>':'';
+  document.getElementById('orgBar').innerHTML=
+    '<span class="icon">&#127970;</span><div><div class="label">組織</div><div class="name">'+escHtml(currentUser.domain)+'</div></div>'+adminFlag;
+
+  // Show admin tab if admin
+  if(isAdmin()){
+    document.getElementById('tabAdmin').style.display='';
+    document.getElementById('adminSheetUrl').value=orgConfig.spreadsheetUrl||'';
+    renderAdminList();
+  }
+
+  // Load rules
+  await loadSpreadsheetData();
+}
+
+function isAdmin(){
+  if(!orgConfig)return false;
+  var admins=orgConfig.admins||[orgConfig.admin];
+  return admins.indexOf(currentUser.email)!==-1;
+}
+
+// ---- Tab switching ----
+function switchTab(name){
+  ['chat','qa','adminContent'].forEach(function(t){
+    var el=document.getElementById('tab'+t.charAt(0).toUpperCase()+t.slice(1));
+    if(el)el.classList.remove('active');
+  });
+  var target=document.getElementById('tab'+name.charAt(0).toUpperCase()+name.slice(1));
+  if(target)target.classList.add('active');
+
+  document.querySelectorAll('.tabs .tab').forEach(function(t){t.classList.remove('active');});
+  var tabs=document.querySelectorAll('.tabs .tab');
+  var idx={chat:0,qa:1,admin:2}[name]||0;
+  if(tabs[idx])tabs[idx].classList.add('active');
+}
+
+// ---- Load spreadsheet data ----
+async function loadSpreadsheetData(){
+  if(!orgConfig||!orgConfig.spreadsheetId)return;
+  setStatus('rulesStatus','ルールを読み込み中...','info');
+
+  try{
+    var meta=await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+orgConfig.spreadsheetId+'?fields=sheets(properties(title))');
+    sheetNames=meta.sheets.map(function(s){return s.properties.title;});
+
+    // Show sheet tabs
+    document.getElementById('sheetTabs').innerHTML=sheetNames.filter(function(n){return n!==QA_SHEET;}).map(function(name){
+      return'<span class="sheet-tab">'+escHtml(name)+'</span>';
+    }).join('');
+
+    // Batch read all sheets
+    var ranges=sheetNames.map(function(name){return encodeURIComponent(name)+'!A:Z';});
+    var batchUrl='https://sheets.googleapis.com/v4/spreadsheets/'+orgConfig.spreadsheetId+'/values:batchGet?ranges='+ranges.join('&ranges=');
+    var data=await apiFetch(batchUrl);
+
+    var allText='';
+    var qaData=null;
+    data.valueRanges.forEach(function(vr,i){
+      var name=sheetNames[i];
+      if(name===QA_SHEET){qaData=vr.values||[];return;}
+      allText+='\n\n=== '+name+' ===\n';
+      if(vr.values){
+        vr.values.forEach(function(row){
+          var line=row.filter(function(c){return c&&c.toString().trim();}).join(' | ');
+          if(line)allText+=line+'\n';
+        });
+      }
+    });
+    rulesText=allText.trim();
+
+    // Load confirmed Q&A
+    confirmedQA=[];
+    if(qaData&&qaData.length>1){
+      for(var i=1;i<qaData.length;i++){
+        var row=qaData[i];
+        if(row[3])confirmedQA.push({q:row[1],a:row[3]});
+      }
+    }
+
+    var sheetCount=sheetNames.filter(function(n){return n!==QA_SHEET;}).length;
+    setStatus('rulesStatus',sheetCount+'シート / '+rulesText.length.toLocaleString()+'文字'+
+      (confirmedQA.length?' / 確定Q&A: '+confirmedQA.length+'件':''),'success');
+
+    // Enable chat
+    document.getElementById('chatInput').disabled=false;
+    document.getElementById('btnSend').disabled=false;
+    showExamples();
+
+    // Show QA log
+    if(qaData&&qaData.length>1)renderQALog(qaData);
+
+  }catch(e){
+    setStatus('rulesStatus','エラー: '+e.message,'error');
+  }
+}
+
+function showExamples(){
+  var examples=['有給の申請方法を教えて','経費申請の流れは？','健康診断はどこで受ければいい？','残業申請はいつまでにする？'];
+  document.getElementById('examples').innerHTML=examples.map(function(q){
+    return'<button class="example-btn" onclick="askExample(this)">'+q+'</button>';
+  }).join('');
+}
+function askExample(btn){document.getElementById('chatInput').value=btn.textContent;sendMessage();}
+
+// ---- Chat ----
+async function sendMessage(){
+  var input=document.getElementById('chatInput');
+  var q=input.value.trim();
+  if(!q||!rulesText)return;
+  input.value='';input.disabled=true;
+  document.getElementById('btnSend').disabled=true;
+  document.getElementById('welcomeChat').style.display='none';
+
+  addMsg('user',q);
+  addMsg('ai','',true);
+
+  try{
+    var confirmed=findConfirmedAnswer(q);
+    var answer,confidence;
+    if(confirmed){answer=confirmed;confidence=1.0;}
+    else{var result=await callGemini(q);answer=result.answer;confidence=result.confidence;}
+
+    removeTyping();
+    var isUncertain=confidence<0.7;
+    addMsg('ai',answer,false,isUncertain);
+
+    if(isUncertain)await saveUncertainQA(q,answer,confidence);
+
+    chatHistory.push({role:'user',text:q});
+    chatHistory.push({role:'ai',text:answer});
+  }catch(e){
+    removeTyping();
+    addMsg('ai','エラーが発生しました: '+e.message);
+  }
+
+  input.disabled=false;document.getElementById('btnSend').disabled=false;input.focus();
+}
+
+function findConfirmedAnswer(q){
+  if(!confirmedQA.length)return null;
+  var qLower=q.toLowerCase();
+  for(var i=0;i<confirmedQA.length;i++){
+    var cq=confirmedQA[i].q.toLowerCase();
+    var qWords=qLower.split(/\s+/);
+    var matchCount=0;
+    qWords.forEach(function(w){if(w.length>1&&cq.indexOf(w)>=0)matchCount++;});
+    if(qWords.length>0&&matchCount/qWords.length>0.6)return confirmedQA[i].a;
+  }
+  return null;
+}
+
+async function callGemini(question){
+  var qaContext='';
+  if(confirmedQA.length){
+    qaContext='\n\n=== 過去に確定したQ&A ===\n';
+    confirmedQA.forEach(function(item){qaContext+='Q: '+item.q+'\nA: '+item.a+'\n\n';});
+  }
+  var recentChat='';
+  var recent=chatHistory.slice(-6);
+  if(recent.length){
+    recentChat='\n\n=== 直近の会話 ===\n';
+    recent.forEach(function(m){recentChat+=(m.role==='user'?'ユーザー: ':'アシスタント: ')+m.text+'\n';});
+  }
+
+  var systemPrompt='あなたは社内ルールガイドです。以下のルール集の内容のみに基づいて回答してください。\n'+
+    'ルール集に書かれていない内容については推測せず、「この件はルール集に記載がないため、総務にご確認ください」と正直に伝えてください。\n'+
+    '回答はJSON形式で返してください: {"answer": "回答テキスト", "confidence": 0.0〜1.0}\n'+
+    'confidenceはルール集の記載に基づいて回答できた確信度です。\n'+
+    '- 1.0: ルール集にそのまま書いてある\n'+
+    '- 0.7〜0.9: ルール集の内容から合理的に導ける\n'+
+    '- 0.7未満: ルール集に十分な記載がなく推測が含まれる、または回答できない\n'+
+    '回答は簡潔かつ丁寧に。箇条書きを活用してください。\n\n'+
+    '=== ルール集 ===\n'+rulesText+qaContext+recentChat;
+
+  var body={
+    contents:[{role:'user',parts:[{text:systemPrompt+'\n\n質問: '+question}]}],
+    generationConfig:{temperature:0.1,maxOutputTokens:1024,responseMimeType:'application/json'}
+  };
+
+  // Try models with fallback
+  var lastError;
+  for(var m=0;m<GEMINI_MODELS.length;m++){
+    try{
+      var r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+GEMINI_MODELS[m]+':generateContent',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+accessToken},
+        body:JSON.stringify(body)
+      });
+      if(r.status===429||r.status===503){lastError=new Error('Rate limited');continue;}
+      if(!r.ok){var err=await r.text();throw new Error(err);}
+      var data=await r.json();
+      var text=data.candidates[0].content.parts[0].text;
+      try{
+        var parsed=JSON.parse(text);
+        return{answer:parsed.answer||text,confidence:typeof parsed.confidence==='number'?parsed.confidence:0.5};
+      }catch(e){return{answer:text,confidence:0.5};}
+    }catch(e){lastError=e;}
+  }
+  throw lastError||new Error('Gemini API error');
+}
+
+// ---- Uncertain Q&A ----
+async function saveUncertainQA(question,aiAnswer,confidence){
+  try{
+    await ensureQASheet();
+    var now=new Date().toLocaleString('ja-JP');
+    var values=[[now,question,aiAnswer,'',confidence.toFixed(2),currentUser.email]];
+    await apiFetch(
+      'https://sheets.googleapis.com/v4/spreadsheets/'+orgConfig.spreadsheetId+
+      '/values/'+encodeURIComponent(QA_SHEET)+'!A:F:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS',
+      {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:values})}
+    );
+  }catch(e){console.error('QA save error:',e);}
+}
+
+async function ensureQASheet(){
+  if(qaSheetEnsured)return;
+  try{
+    var meta=await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+orgConfig.spreadsheetId+'?fields=sheets(properties(title))');
+    var exists=meta.sheets.some(function(s){return s.properties.title===QA_SHEET;});
+    if(!exists){
+      await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+orgConfig.spreadsheetId+':batchUpdate',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({requests:[{addSheet:{properties:{title:QA_SHEET}}}]})
+      });
+      await apiFetch(
+        'https://sheets.googleapis.com/v4/spreadsheets/'+orgConfig.spreadsheetId+
+        '/values/'+encodeURIComponent(QA_SHEET)+'!A1:F1?valueInputOption=USER_ENTERED',
+        {method:'PUT',headers:{'Content-Type':'application/json'},
+         body:JSON.stringify({values:[['日時','質問','AI回答','確定回答','確信度','質問者']]})}
+      );
+    }
+    qaSheetEnsured=true;
+  }catch(e){console.error('ensureQASheet error:',e);}
+}
+
+// ---- QA Log display ----
+function renderQALog(qaData){
+  if(!qaData||qaData.length<=1){
+    document.getElementById('qaLog').innerHTML='<p style="color:#8a7e6e;font-size:.85em;text-align:center;padding:16px">まだQ&Aはありません</p>';
+    return;
+  }
+  var html='';var pendingCount=0;
+  for(var i=qaData.length-1;i>=1;i--){
+    var row=qaData[i];
+    var isConfirmed=!!row[3];
+    if(!isConfirmed)pendingCount++;
+    html+='<div class="qa-item">'+
+      '<div class="qa-q">Q: '+escHtml(row[1]||'')+
+      '<span class="qa-status '+(isConfirmed?'confirmed':'pending')+'">'+(isConfirmed?'確定':'未確定')+'</span></div>'+
+      '<div class="qa-a">AI: '+escHtml(row[2]||'')+'</div>'+
+      (isConfirmed?'<div class="qa-a" style="color:#2e7d32;font-weight:600">確定: '+escHtml(row[3])+'</div>':'')+
+      '<div style="font-size:.75em;color:#aaa">'+escHtml(row[0]||'')+' / '+escHtml(row[5]||'')+'</div>'+
+      '</div>';
+  }
+  document.getElementById('qaLog').innerHTML=html;
+  if(pendingCount){
+    document.getElementById('qaStatus').innerHTML=
+      '<div class="status info">'+pendingCount+'件の未確定回答があります。スプレッドシートの「'+QA_SHEET+'」シートのD列に正解を入力してください。</div>';
+  }
+}
+
+// ---- Admin functions ----
+function renderAdminList(){
+  var admins=orgConfig.admins||[orgConfig.admin];
+  document.getElementById('adminList').innerHTML=admins.map(function(email){
+    var removable=admins.length>1;
+    return'<div class="admin-item"><span>'+escHtml(email)+'</span>'+
+      (removable?'<button class="remove" onclick="removeAdmin(\''+escAttr(email)+'\')">&times;</button>':'')+
+      '</div>';
+  }).join('');
+}
+
+async function addAdmin(){
+  var email=document.getElementById('newAdminEmail').value.trim();
+  if(!email||email.indexOf('@')<0)return;
+  if(!email.endsWith('@'+currentUser.domain)){alert('同じドメインのメールアドレスを入力してください');return;}
+  var admins=orgConfig.admins||[orgConfig.admin];
+  if(admins.indexOf(email)>=0)return;
+  admins.push(email);
+  orgConfig.admins=admins;
+  await saveOrgConfig();
+  document.getElementById('newAdminEmail').value='';
+  renderAdminList();
+}
+
+async function removeAdmin(email){
+  var admins=orgConfig.admins||[];
+  orgConfig.admins=admins.filter(function(e){return e!==email;});
+  await saveOrgConfig();
+  renderAdminList();
+}
+
+async function updateSheetUrl(){
+  var url=document.getElementById('adminSheetUrl').value.trim();
+  if(!url)return;
+  var sid=extractSpreadsheetId(url);
+  if(!sid){alert('URLが正しくありません');return;}
+  try{
+    await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+sid+'?fields=sheets(properties(title))');
+    orgConfig.spreadsheetId=sid;
+    orgConfig.spreadsheetUrl=url;
+    await saveOrgConfig();
+    qaSheetEnsured=false;
+    await loadSpreadsheetData();
+    alert('スプレッドシートを変更しました');
+  }catch(e){alert('エラー: '+e.message);}
+}
+
+async function resetOrg(){
+  if(!confirm('組織設定をリセットしますか？ この操作は取り消せません。'))return;
+  try{
+    await fetch('https://www.googleapis.com/drive/v3/files/'+orgConfig._configFileId+'?supportsAllDrives=true',{
+      method:'DELETE',headers:{Authorization:'Bearer '+accessToken}
+    });
+    location.reload();
+  }catch(e){alert('エラー: '+e.message);}
+}
+
+async function saveOrgConfig(){
+  if(!orgConfig._configFileId)return;
+  var cfg=Object.assign({},orgConfig);
+  delete cfg._configFileId;
+  await fetch('https://www.googleapis.com/upload/drive/v3/files/'+orgConfig._configFileId+'?uploadType=media&supportsAllDrives=true',{
+    method:'PATCH',
+    headers:{Authorization:'Bearer '+accessToken,'Content-Type':'application/json'},
+    body:JSON.stringify(cfg,null,2)
+  });
+}
+
+// ---- UI helpers ----
+function showView(id){
+  document.querySelectorAll('.container > .view').forEach(function(v){v.classList.remove('active');});
+  var el=document.getElementById(id);
+  if(el)el.classList.add('active');
+}
+
+function addMsg(role,text,typing,uncertain){
+  var chatArea=document.getElementById('chatArea');
+  var div=document.createElement('div');
+  div.className='msg '+role+(typing?' typing':'');
+  if(role==='ai'){
+    div.innerHTML='<div class="avatar">G</div><div class="bubble'+(uncertain?' uncertain':'')+'">'
+      +(typing?'':formatAnswer(text))
+      +(uncertain?'<br><span class="uncertain-badge">&#9888; 不確定 — 総務に確認をおすすめします</span><span class="saved-badge">Q&Aシートに保存しました</span>':'')
+      +'</div>';
+  }else{
+    div.innerHTML='<div class="bubble">'+escHtml(text)+'</div>';
+  }
+  chatArea.appendChild(div);
+  chatArea.scrollTop=chatArea.scrollHeight;
+}
+function removeTyping(){var t=document.querySelector('.msg.typing');if(t)t.remove();}
+function formatAnswer(text){
+  return escHtml(text).replace(/\n/g,'<br>').replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+}
+function escHtml(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+function escAttr(s){return s.replace(/'/g,"\\'").replace(/"/g,'&quot;');}
+function setStatus(id,msg,type){
+  document.getElementById(id).innerHTML='<div class="status '+(type||'info')+'">'+msg+'</div>';
+}
+
+// ---- Init ----
+window.onload=function(){
+  var checkGIS=setInterval(function(){
+    if(typeof google!=='undefined'&&google.accounts){clearInterval(checkGIS);initGIS();}
+  },100);
+};
+</script>
+</body>
+</html>
