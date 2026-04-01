@@ -513,7 +513,10 @@ async function showMainView(){
   document.getElementById('orgBar').innerHTML=
     '<span class="icon">&#127970;</span><div><div class="label">組織</div><div class="name">'+escHtml(currentUser.domain)+'</div></div>'+adminFlag;
 
-  // Show admin tabs if admin
+  // Load rules (this also loads API key and admin list from config sheet)
+  await loadSpreadsheetData();
+
+  // Show admin tabs if admin (after loadSpreadsheetData so admins/apikey are loaded)
   if(isAdmin()){
     document.getElementById('tabAdmin').style.display='';
     document.getElementById('tabSuggestBtn').style.display='';
@@ -522,9 +525,6 @@ async function showMainView(){
     document.getElementById('adminApiKey').placeholder=GEMINI_API_KEY?'設定済み — 変更する場合は新しいキーを入力':'APIキーを入力';
     renderAdminList();
   }
-
-  // Load rules
-  await loadSpreadsheetData();
 }
 
 function isAdmin(){
