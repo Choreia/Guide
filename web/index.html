@@ -1164,11 +1164,12 @@ async function markResolved(btn,sheetRow){
   btn.disabled=true;btn.textContent='保存中...';
   try{
     if(sheetRow>0){
+      var resolvedBy=currentUser.name+' ('+currentUser.email+') '+new Date().toLocaleString('ja-JP');
       await apiFetch(
         'https://sheets.googleapis.com/v4/spreadsheets/'+orgConfig.spreadsheetId+
         '/values/'+encodeURIComponent(SUGGEST_SHEET)+'!G'+sheetRow+'?valueInputOption=USER_ENTERED',
         {method:'PUT',headers:{'Content-Type':'application/json'},
-         body:JSON.stringify({values:[['対応済み']]})}
+         body:JSON.stringify({values:[['対応済み: '+resolvedBy]]})}
       );
     }
     var item=btn.closest('.suggest-item');
@@ -1182,6 +1183,7 @@ async function saveSuggestions(suggestions){
   try{
     var meta=await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+orgConfig.spreadsheetId+'?fields=sheets(properties(title))');
     var exists=meta.sheets.some(function(s){return s.properties.title===SUGGEST_SHEET;});
+    var existingRows=[];
     if(!exists){
       await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+orgConfig.spreadsheetId+':batchUpdate',{
         method:'POST',headers:{'Content-Type':'application/json'},
@@ -1195,16 +1197,57 @@ async function saveSuggestions(suggestions){
       );
     }
 
+    // Read existing suggestions for dedup
+    if(exists){
+      var existing=await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+orgConfig.spreadsheetId+'/values/'+encodeURIComponent(SUGGEST_SHEET)+'!A:G');
+      existingRows=existing.values||[];
+    }
+
     var now=new Date().toLocaleString('ja-JP');
-    var values=suggestions.map(function(s){
-      return[now,s.category||'',s.priority||'',s.title||'',s.detail||'',s.sheet||'',s.status||'未対応'];
+    var toAppend=[];
+    var updateBatch=[];
+
+    suggestions.forEach(function(s){
+      var newTitle=(s.title||'').toLowerCase();
+      // Find existing row with similar title
+      var matchIdx=-1;
+      for(var i=1;i<existingRows.length;i++){
+        var existingTitle=(existingRows[i][3]||'').toLowerCase();
+        if(existingTitle===newTitle||similarity(existingTitle,newTitle)>0.7){
+          matchIdx=i;break;
+        }
+      }
+      if(matchIdx>=0){
+        // Update existing row
+        var rowNum=matchIdx+1;
+        updateBatch.push({
+          range:encodeURIComponent(SUGGEST_SHEET)+'!A'+rowNum+':G'+rowNum,
+          values:[[now,s.category||'',s.priority||'',s.title||'',s.detail||'',s.sheet||'',s.status||existingRows[matchIdx][6]||'未対応']]
+        });
+      }else{
+        toAppend.push([now,s.category||'',s.priority||'',s.title||'',s.detail||'',s.sheet||'',s.status||'未対応']);
+      }
     });
-    await apiFetch(
-      'https://sheets.googleapis.com/v4/spreadsheets/'+orgConfig.spreadsheetId+
-      '/values/'+encodeURIComponent(SUGGEST_SHEET)+'!A:G:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS',
-      {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:values})}
-    );
-    // Get current row count to calculate start row
+
+    // Batch update existing rows
+    for(var u=0;u<updateBatch.length;u++){
+      await apiFetch(
+        'https://sheets.googleapis.com/v4/spreadsheets/'+orgConfig.spreadsheetId+
+        '/values/'+updateBatch[u].range+'?valueInputOption=USER_ENTERED',
+        {method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:updateBatch[u].values})}
+      );
+    }
+
+    // Append new rows
+    if(toAppend.length){
+      await apiFetch(
+        'https://sheets.googleapis.com/v4/spreadsheets/'+orgConfig.spreadsheetId+
+        '/values/'+encodeURIComponent(SUGGEST_SHEET)+'!A:G:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS',
+        {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:toAppend})}
+      );
+    }
+
+    // Get row count for UI references
     var current=await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+orgConfig.spreadsheetId+'/values/'+encodeURIComponent(SUGGEST_SHEET)+'!A:A');
     startRow=(current.values?current.values.length:1)-suggestions.length+1;
   }catch(e){console.error('saveSuggestions error:',e);}
@@ -1227,7 +1270,7 @@ async function loadSuggestionHistory(){
     var start=Math.max(1,rows.length-20);
     for(var i=start;i<rows.length;i++){
       var row=rows[i];
-      var resolved=(row[6]||'')==='対応済み';
+      var resolved=(row[6]||'').indexOf('対応済み')===0;
       if(resolved)resolvedCount++;else pendingCount++;
       items.push({row:row,idx:i+1,resolved:resolved,priority:row[2]||'medium'});
     }
@@ -1258,6 +1301,19 @@ async function loadSuggestionHistory(){
     var summary='<h3 style="font-size:.9em;color:#5a3e28;margin-bottom:8px">過去の提案 <span style="font-size:.8em;color:#8a7e6e">(未対応: '+pendingCount+' / 対応済み: '+resolvedCount+')</span></h3>';
     document.getElementById('suggestHistory').innerHTML=summary+html;
   }catch(e){}
+}
+
+function similarity(a,b){
+  if(!a||!b)return 0;
+  var longer=a.length>b.length?a:b;
+  var shorter=a.length>b.length?b:a;
+  if(longer.length===0)return 1;
+  // Simple word overlap
+  var aWords=a.split(/\s+/);
+  var bWords=b.split(/\s+/);
+  var match=0;
+  aWords.forEach(function(w){if(w.length>1&&b.indexOf(w)>=0)match++;});
+  return aWords.length?match/aWords.length:0;
 }
 
 // ---- Browse view ----
