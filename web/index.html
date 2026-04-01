@@ -11,7 +11,7 @@
 <meta property="og:url" content="https://choreia.github.io/Guide/">
 <meta property="og:locale" content="ja_JP">
 <meta property="og:site_name" content="Choreia">
-<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Guide">
 <meta name="theme-color" content="#a0522d">
@@ -275,7 +275,7 @@ footer a:hover{text-decoration:underline}
 
 // ---- Config ----
 var CLIENT_ID='595564106580-hsrunbvfacmr23d2jopl462taqilip75.apps.googleusercontent.com';
-var SCOPES='https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/generative-language.retriever';
+var SCOPES='openid email profile https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/generative-language.retriever';
 var CONFIG_FILENAME='choreia-guide-config.json';
 var QA_SHEET='Guide_QA';
 var BLOCKED_DOMAINS=['gmail.com','googlemail.com','yahoo.co.jp','yahoo.com','hotmail.com','outlook.com','outlook.jp','icloud.com','aol.com','protonmail.com','zoho.com','mail.com','yandex.com','live.com','live.jp','msn.com','me.com','mac.com'];
@@ -321,8 +321,10 @@ async function restoreSession(){
 }
 async function onAuthenticated(){
   var r=await fetch('https://www.googleapis.com/oauth2/v3/userinfo',{headers:{Authorization:'Bearer '+accessToken}});
+  if(!r.ok){sessionStorage.removeItem('choreia_guide_token');accessToken=null;return;}
   var u=await r.json();
-  currentUser={email:u.email,name:u.name,domain:u.email.split('@')[1],photo:u.picture||''};
+  if(!u.email){sessionStorage.removeItem('choreia_guide_token');accessToken=null;return;}
+  currentUser={email:u.email,name:u.name||u.email,domain:u.email.split('@')[1],photo:u.picture||''};
 
   // Block personal domains
   if(isBlockedDomain(currentUser.domain)){
