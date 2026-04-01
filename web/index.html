@@ -466,11 +466,12 @@ function isAdmin(){
 
 // ---- Tab switching ----
 function switchTab(name){
-  ['browse','chat','qa','adminContent'].forEach(function(t){
-    var el=document.getElementById('tab'+t.charAt(0).toUpperCase()+t.slice(1));
+  var contentIds={browse:'tabBrowse',chat:'tabChat',qa:'tabQA',admin:'tabAdminContent'};
+  Object.keys(contentIds).forEach(function(k){
+    var el=document.getElementById(contentIds[k]);
     if(el)el.classList.remove('active');
   });
-  var target=document.getElementById('tab'+name.charAt(0).toUpperCase()+name.slice(1));
+  var target=document.getElementById(contentIds[name]);
   if(target)target.classList.add('active');
 
   document.querySelectorAll('.tabs .tab').forEach(function(t){t.classList.remove('active');});
