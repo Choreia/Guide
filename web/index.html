@@ -741,9 +741,9 @@ async function callGemini(question){
   var lastError;
   for(var m=0;m<GEMINI_MODELS.length;m++){
     try{
-      var r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+GEMINI_MODELS[m]+':generateContent',{
+      var r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+GEMINI_MODELS[m]+':generateContent?key='+GEMINI_API_KEY,{
         method:'POST',
-        headers:{'Content-Type':'application/json','Authorization':'Bearer '+accessToken},
+        headers:{'Content-Type':'application/json'},
         body:JSON.stringify(body)
       });
       if(!r.ok){lastError=new Error('Model '+GEMINI_MODELS[m]+': '+r.status);continue;}
