@@ -373,7 +373,7 @@ var CONFIG_SHEET='Guide_Config';
 var FORMATTED_SHEET='Guide_Formatted';
 var BLOCKED_DOMAINS=['gmail.com','googlemail.com','yahoo.co.jp','yahoo.com','hotmail.com','outlook.com','outlook.jp','icloud.com','aol.com','protonmail.com','zoho.com','mail.com','yandex.com','live.com','live.jp','msn.com','me.com','mac.com'];
 var GEMINI_API_KEY=''; // loaded from Guide_Config sheet
-var GEMINI_MODELS=['gemini-2.5-flash','gemini-2.0-flash','gemini-1.5-flash'];
+var GEMINI_MODELS=['gemini-2.5-flash'];
 
 // ---- State ----
 var tokenClient=null,accessToken=null;
@@ -1041,8 +1041,8 @@ async function runAnalysis(){
     var result=null;
     var lastModelError='';
     var bodyVariants=[
-      {contents:[{role:'user',parts:[{text:prompt}]}],generationConfig:{temperature:0.3,maxOutputTokens:4096,responseMimeType:'application/json'}},
-      {contents:[{role:'user',parts:[{text:prompt+'\n\n必ずJSONのみで回答してください。マークダウンのコードブロックは使わないでください。'}]}],generationConfig:{temperature:0.3,maxOutputTokens:4096}}
+      {contents:[{role:'user',parts:[{text:prompt}]}],generationConfig:{temperature:0.3,maxOutputTokens:16384,responseMimeType:'application/json'}},
+      {contents:[{role:'user',parts:[{text:prompt+'\n\n必ずJSONのみで回答してください。マークダウンのコードブロックは使わないでください。'}]}],generationConfig:{temperature:0.3,maxOutputTokens:16384}}
     ];
     for(var b=0;b<bodyVariants.length&&!result;b++){
       for(var m=0;m<GEMINI_MODELS.length;m++){
@@ -1404,7 +1404,7 @@ async function formatSheet(sheetName){
   try{
     var body={
       contents:[{role:'user',parts:[{text:prompt}]}],
-      generationConfig:{temperature:0.1,maxOutputTokens:8192,responseMimeType:'application/json'}
+      generationConfig:{temperature:0.1,maxOutputTokens:16384,responseMimeType:'application/json'}
     };
 
     var result=null;
