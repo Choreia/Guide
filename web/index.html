@@ -17,14 +17,15 @@
 <meta name="theme-color" content="#a0522d">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com https://apis.google.com; style-src 'self' 'unsafe-inline'; connect-src https://www.googleapis.com https://accounts.google.com https://oauth2.googleapis.com https://sheets.googleapis.com https://generativelanguage.googleapis.com https://drive.googleapis.com; frame-src https://accounts.google.com; img-src 'self' https://*.googleusercontent.com data: blob:;">
 <style>
+:root{--color-primary:#a0522d;--color-primary-dark:#7a3d22;--color-bg:#faf8f5;--color-accent:#f5ece5;--color-text:#2c2418;--color-muted:#8a7e6e;--color-border:#d4cdc2}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",sans-serif;background:#faf8f5;color:#2c2418;line-height:1.6;min-height:100vh;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",sans-serif;background:var(--color-bg);color:var(--color-text);line-height:1.6;min-height:100vh;-webkit-tap-highlight-color:transparent}
 .container{max-width:640px;margin:0 auto;padding:16px}
 @media(max-width:640px){.container{padding-bottom:100px}}
 
 /* Header */
 .header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
-.header h1{font-size:1.3em}.header h1 span{color:#a0522d}
+.header h1{font-size:1.3em}.header h1 span{color:var(--color-primary)}
 .auth-area{display:flex;align-items:center;gap:8px;font-size:.85em}
 .auth-area img{width:28px;height:28px;border-radius:50%;cursor:pointer}
 .btn-google{display:inline-flex;align-items:center;gap:8px;padding:8px 16px 8px 12px;background:#fff;color:#3c4043;border:1px solid #dadce0;border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;box-shadow:0 1px 2px rgba(60,64,67,.1);font-family:'Google Sans',Roboto,-apple-system,sans-serif}
@@ -36,16 +37,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",sans
 .org-bar .icon{font-size:1.3em}
 .org-bar .label{color:#8a7e6e;font-size:.8em}
 .org-bar .name{font-weight:600;color:#5a3e28}
-.org-bar .admin-badge{margin-left:auto;font-size:.7em;background:#a0522d;color:#fff;padding:2px 8px;border-radius:10px}
+.org-bar .admin-badge{margin-left:auto;font-size:.7em;background:var(--color-primary);color:#fff;padding:2px 8px;border-radius:10px}
 
 /* Card */
 .card{background:#fff;border-radius:16px;padding:24px;margin-bottom:16px;box-shadow:0 1px 4px rgba(44,36,24,.06)}
-.card h2{font-size:1.05em;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #a0522d}
+.card h2{font-size:1.05em;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid var(--color-primary)}
 
 /* Tabs */
 .tabs{display:flex;gap:0;margin-bottom:16px;background:#fff;border-radius:12px;padding:4px;box-shadow:0 1px 4px rgba(44,36,24,.06)}
 .tab{flex:1;padding:10px;text-align:center;border:none;background:none;border-radius:8px;font-size:.9em;font-weight:600;font-family:inherit;cursor:pointer;color:#8a7e6e;transition:all .2s}
-.tab.active{background:#a0522d;color:#fff}
+.tab.active{background:var(--color-primary);color:#fff}
 
 /* Status */
 .status{padding:12px 16px;border-radius:10px;font-size:.85em;margin-bottom:12px}
@@ -59,8 +60,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",sans
 .setup-row{display:flex;gap:8px;margin-bottom:12px;align-items:center}
 .setup-row input,.setup-row select{flex:1;padding:10px 12px;border:1px solid #d4cdc2;border-radius:8px;font-size:.9em;font-family:inherit}
 .setup-row input:focus,.setup-row select:focus{outline:none;border-color:#a0522d}
-.btn-primary{padding:10px 20px;background:#a0522d;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:.9em;font-weight:600;font-family:inherit;white-space:nowrap}
-.btn-primary:hover{background:#8a4420}
+.btn-primary{padding:10px 20px;background:var(--color-primary);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:.9em;font-weight:600;font-family:inherit;white-space:nowrap}
+.btn-primary:hover{background:var(--color-primary-dark)}
 .btn-primary:disabled{opacity:.5;cursor:default}
 .btn-secondary{padding:8px 14px;background:#f5ece5;color:#7a3d22;border:1px solid #d4cdc2;border-radius:8px;cursor:pointer;font-size:.85em;font-family:inherit}
 .btn-secondary:hover{background:#ece6de}
@@ -100,7 +101,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",sans
 .bubble.uncertain{border:2px dashed #e6a817}
 .uncertain-badge{display:inline-block;background:#fff3cd;color:#856404;font-size:.7em;padding:2px 8px;border-radius:8px;margin-top:6px}
 .saved-badge{display:inline-block;background:#e8f5e9;color:#2e7d32;font-size:.7em;padding:2px 8px;border-radius:8px;margin-top:4px}
-.msg.ai .avatar{width:28px;height:28px;border-radius:50%;background:#a0522d;color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;margin-top:2px}
+.msg.ai .avatar{width:36px;height:36px;border-radius:50%;flex-shrink:0;margin-top:2px;overflow:hidden;background:var(--color-accent)}
+.msg.ai .avatar img{width:100%;height:100%;object-fit:cover}
+.msg.ai .avatar-letter{width:36px;height:36px;border-radius:50%;background:var(--color-primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700}
 .typing .bubble::after{content:'...';animation:dots 1s infinite}
 @keyframes dots{0%,20%{content:'.'}40%{content:'..'}60%,100%{content:'...'}}
 
@@ -109,8 +112,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",sans
 .input-area input{flex:1;padding:12px 16px;border:1px solid #d4cdc2;border-radius:24px;font-size:.95em;font-family:inherit;background:#fff}
 .input-area input:focus{outline:none;border-color:#a0522d}
 .input-area input:disabled{background:#f5f5f5}
-.btn-send{width:44px;height:44px;border-radius:50%;background:#a0522d;color:#fff;border:none;cursor:pointer;font-size:1.2em;display:flex;align-items:center;justify-content:center}
-.btn-send:hover{background:#8a4420}
+.btn-send{width:44px;height:44px;border-radius:50%;background:var(--color-primary);color:#fff;border:none;cursor:pointer;font-size:1.2em;display:flex;align-items:center;justify-content:center}
+.btn-send:hover{background:var(--color-primary-dark)}
 .btn-send:disabled{opacity:.4;cursor:default}
 
 /* Welcome */
@@ -212,6 +215,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",sans
 .rich-table td{padding:8px 12px;border-bottom:1px solid #ece6de;font-size:.85em}
 .rich-table tr:last-child td{border-bottom:none}
 .rich-table tr:nth-child(even){background:#faf8f5}
+/* Rich accordion */
+.rich-accordion{margin:8px 0;border:1px solid #ece6de;border-radius:10px;overflow:hidden}
+.rich-accordion-header{display:flex;align-items:center;gap:10px;padding:12px 16px;background:var(--color-primary,#a0522d);color:#fff;cursor:pointer;font-weight:600;font-size:.95em;user-select:none;transition:background .15s}
+.rich-accordion-header:hover{filter:brightness(1.1)}
+.rich-accordion-arrow{font-size:.7em;transition:transform .2s}
+.rich-accordion-header.open .rich-accordion-arrow{transform:rotate(90deg)}
+.rich-accordion-body{display:none;padding:12px 16px;background:#fff}
+.rich-accordion-body.open{display:block}
+
 .rich-divider{border:none;border-top:1px solid #ece6de;margin:16px 0}
 .rich-quote{background:#fdf5f0;border-left:4px solid #a0522d;padding:10px 14px;border-radius:0 8px 8px 0;margin:8px 0;font-size:.9em}
 
@@ -393,6 +405,31 @@ footer a:hover{text-decoration:underline}
           </div>
         </div>
         <div class="admin-panel">
+          <h3>テーマ設定</h3>
+          <div class="admin-row">
+            <span style="font-size:.85em;min-width:80px">メインカラー</span>
+            <input type="color" id="themeColor" value="#a0522d" style="width:40px;height:32px;border:1px solid #d4cdc2;border-radius:6px;cursor:pointer">
+            <button class="btn-secondary" onclick="saveTheme()">保存</button>
+          </div>
+          <div class="admin-row">
+            <span style="font-size:.85em;min-width:80px">ロゴURL</span>
+            <input type="text" id="logoUrl" placeholder="https://...">
+            <button class="btn-secondary" onclick="saveLogo()">保存</button>
+          </div>
+          <div class="admin-row">
+            <span style="font-size:.85em;min-width:80px">マスコット</span>
+            <input type="text" id="mascotUrl" placeholder="チャットアバターの画像URL">
+            <button class="btn-secondary" onclick="saveMascot()">保存</button>
+          </div>
+          <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+            <button class="btn-secondary" style="font-size:.75em" onclick="applyPreset('#1b5e20','#0d3311')">やさいバス(緑)</button>
+            <button class="btn-secondary" style="font-size:.75em" onclick="applyPreset('#1565c0','#0d47a1')">ブルー</button>
+            <button class="btn-secondary" style="font-size:.75em" onclick="applyPreset('#4a148c','#311b92')">パープル</button>
+            <button class="btn-secondary" style="font-size:.75em" onclick="applyPreset('#a0522d','#7a3d22')">Choreia(茶)</button>
+            <button class="btn-secondary" style="font-size:.75em" onclick="applyPreset('#c62828','#8e0000')">レッド</button>
+          </div>
+        </div>
+        <div class="admin-panel">
           <h3>危険な操作</h3>
           <button class="btn-secondary" onclick="resetOrg()" style="color:#c62828;border-color:#c62828">組織設定をリセット</button>
         </div>
@@ -555,8 +592,9 @@ async function showMainView(){
 
   // Org bar
   var adminFlag=isAdmin()?'<span class="admin-badge">管理者</span>':'';
+  var logoHtml=orgConfig._logoUrl?'<img src="'+orgConfig._logoUrl+'" style="height:32px;border-radius:4px" alt="">':'<span class="icon">&#127970;</span>';
   document.getElementById('orgBar').innerHTML=
-    '<span class="icon">&#127970;</span><div><div class="label">組織</div><div class="name">'+escHtml(currentUser.domain)+'</div></div>'+adminFlag;
+    logoHtml+'<div><div class="label">組織</div><div class="name">'+escHtml(currentUser.domain)+'</div></div>'+adminFlag;
 
   // Load rules (this also loads API key and admin list from config sheet)
   await loadSpreadsheetData();
@@ -568,6 +606,10 @@ async function showMainView(){
     document.getElementById('adminSheetUrl').value=orgConfig.spreadsheetUrl||'';
     document.getElementById('adminApiKey').value=GEMINI_API_KEY?'••••••••••••':'';
     document.getElementById('adminApiKey').placeholder=GEMINI_API_KEY?'設定済み — 変更する場合は新しいキーを入力':'APIキーを入力';
+    var cs=getComputedStyle(document.documentElement);
+    document.getElementById('themeColor').value=cs.getPropertyValue('--color-primary').trim()||'#a0522d';
+    document.getElementById('logoUrl').value=orgConfig._logoUrl||'';
+    document.getElementById('mascotUrl').value=orgConfig._mascotUrl||'';
     renderAdminList();
   }
 }
@@ -654,6 +696,12 @@ async function loadSpreadsheetData(){
         if(key==='gemini_api_key'&&val){
           GEMINI_API_KEY=val;
         }
+        if(key==='theme_primary'&&val)document.documentElement.style.setProperty('--color-primary',val);
+        if(key==='theme_primary_dark'&&val)document.documentElement.style.setProperty('--color-primary-dark',val);
+        if(key==='theme_bg'&&val)document.documentElement.style.setProperty('--color-bg',val);
+        if(key==='theme_accent'&&val)document.documentElement.style.setProperty('--color-accent',val);
+        if(key==='logo_url'&&val){orgConfig._logoUrl=val;}
+        if(key==='mascot_url'&&val){orgConfig._mascotUrl=val;}
         if(key.toLowerCase()===currentUser.email.toLowerCase()&&val){
           userAffiliation=val.toUpperCase();
         }
@@ -1000,6 +1048,68 @@ async function updateSheetUrl(){
     await loadSpreadsheetData();
     alert('スプレッドシートを変更しました');
   }catch(e){alert('エラー: '+e.message);}
+}
+
+function applyPreset(primary,dark){
+  document.getElementById('themeColor').value=primary;
+  document.documentElement.style.setProperty('--color-primary',primary);
+  document.documentElement.style.setProperty('--color-primary-dark',dark);
+}
+
+async function saveTheme(){
+  var color=document.getElementById('themeColor').value;
+  // Generate dark variant
+  var dark=darkenColor(color,0.25);
+  document.documentElement.style.setProperty('--color-primary',color);
+  document.documentElement.style.setProperty('--color-primary-dark',dark);
+  await saveConfigKey('theme_primary',color);
+  await saveConfigKey('theme_primary_dark',dark);
+  alert('テーマを保存しました');
+}
+
+async function saveLogo(){
+  var url=document.getElementById('logoUrl').value.trim();
+  if(!url)return;
+  await saveConfigKey('logo_url',url);
+  orgConfig._logoUrl=url;
+  var logoEl=document.querySelector('.org-bar img, .org-bar .icon');
+  if(logoEl)logoEl.outerHTML='<img src="'+url+'" style="height:32px;border-radius:4px" alt="">';
+  alert('ロゴを保存しました');
+}
+
+async function saveMascot(){
+  var url=document.getElementById('mascotUrl').value.trim();
+  if(!url)return;
+  await saveConfigKey('mascot_url',url);
+  orgConfig._mascotUrl=url;
+  alert('マスコットを保存しました。チャットのアバターに反映されます。');
+}
+
+function darkenColor(hex,amount){
+  var r=parseInt(hex.slice(1,3),16);
+  var g=parseInt(hex.slice(3,5),16);
+  var b=parseInt(hex.slice(5,7),16);
+  r=Math.max(0,Math.round(r*(1-amount)));
+  g=Math.max(0,Math.round(g*(1-amount)));
+  b=Math.max(0,Math.round(b*(1-amount)));
+  return'#'+[r,g,b].map(function(c){return c.toString(16).padStart(2,'0');}).join('');
+}
+
+async function saveConfigKey(key,val){
+  try{
+    await ensureConfigSheet();
+    var data=await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+orgConfig.spreadsheetId+'/values/'+encodeURIComponent(CONFIG_SHEET)+'!A:B');
+    var rows=data.values||[];
+    var rowIdx=-1;
+    for(var i=0;i<rows.length;i++){if(rows[i][0]===key){rowIdx=i+1;break;}}
+    if(rowIdx>0){
+      await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+orgConfig.spreadsheetId+'/values/'+encodeURIComponent(CONFIG_SHEET)+'!A'+rowIdx+':B'+rowIdx+'?valueInputOption=USER_ENTERED',
+        {method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:[[key,val]]})});
+    }else{
+      await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+orgConfig.spreadsheetId+'/values/'+encodeURIComponent(CONFIG_SHEET)+'!A:B:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS',
+        {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:[[key,val]]})});
+    }
+  }catch(e){console.error('saveConfigKey error:',e);}
 }
 
 async function saveApiKey(){
@@ -1555,50 +1665,90 @@ function linkify(text){
 // ---- Structured data renderer ----
 function renderStructured(items){
   if(!items||!items.length)return'';
+  // Group items by h2 sections
+  var sections=[];
+  var currentSection=null;
+  var preItems=[]; // items before first h2
+
+  items.forEach(function(item){
+    if(item.type==='h2'){
+      if(currentSection)sections.push(currentSection);
+      currentSection={title:item.content,items:[]};
+    }else if(currentSection){
+      currentSection.items.push(item);
+    }else{
+      preItems.push(item);
+    }
+  });
+  if(currentSection)sections.push(currentSection);
+
   var html='';
+  // Render pre-h2 items (title, intro text, etc.)
+  preItems.forEach(function(item){html+=renderStructuredItem(item);});
+
+  // Render h2 sections as accordions
+  sections.forEach(function(sec,idx){
+    html+='<div class="rich-accordion">';
+    html+='<div class="rich-accordion-header" onclick="this.classList.toggle(\'open\');this.nextElementSibling.classList.toggle(\'open\')">';
+    html+='<span class="rich-accordion-arrow">&#9654;</span>';
+    html+='<span>'+escHtml(sec.title)+'</span>';
+    html+='</div>';
+    html+='<div class="rich-accordion-body">';
+    sec.items.forEach(function(item){html+=renderStructuredItem(item);});
+    html+='</div></div>';
+  });
+
+  return html;
+}
+
+function renderStructuredItem(item){
+  var t=item.type||'text';
+  var label=item.label||'';
+  var content=item.content||'';
+  switch(t){
+    case'title':return'<div class="rich-title">'+escHtml(content)+'</div>';
+    case'h2':return'<div class="rich-h2">'+escHtml(content)+'</div>';
+    case'h3':return'<div class="rich-h3">'+escHtml(content)+'</div>';
+    case'text':return'<div class="rich-text">'+linkify(escHtml(content))+'</div>';
+    case'info':return'<div class="rich-info"><span class="ri-label">'+escHtml(label)+'</span><span class="ri-value">'+linkify(escHtml(content))+'</span></div>';
+    case'step':return'<div class="rich-step"><span class="rs-num">'+escHtml(label)+'</span><div class="rs-body">'+linkify(escHtml(content))+'</div></div>';
+    case'note':return'<div class="rich-note">'+linkify(escHtml(content))+'</div>';
+    case'warn':return'<div class="rich-warn">'+escHtml(content)+'</div>';
+    case'link':return'<a class="rich-link" href="'+escHtml(content)+'" target="_blank">'+escHtml(label||content)+' →</a>';
+    case'list':return'<div class="rich-list-item"><span class="rli-bullet">•</span><span class="rli-text">'+linkify(escHtml(content))+'</span></div>';
+    case'table':return''; // handled separately
+    case'divider':return'<hr class="rich-divider">';
+    case'quote':return'<div class="rich-quote">'+linkify(escHtml(content))+'</div>';
+    default:return'<div class="rich-text">'+linkify(escHtml(content))+'</div>';
+  }
+}
+
+// Handle consecutive table items in sections
+var _origRenderStructured=renderStructured;
+renderStructured=function(items){
+  // Pre-process: merge consecutive table items
+  var processed=[];
   var i=0;
   while(i<items.length){
-    var item=items[i];
-    var t=item.type||'text';
-    var label=item.label||'';
-    var content=item.content||'';
-    switch(t){
-      case'title':
-        html+='<div class="rich-title">'+escHtml(content)+'</div>';break;
-      case'h2':
-        html+='<div class="rich-h2">'+escHtml(content)+'</div>';break;
-      case'h3':
-        html+='<div class="rich-h3">'+escHtml(content)+'</div>';break;
-      case'text':
-        html+='<div class="rich-text">'+linkify(escHtml(content))+'</div>';break;
-      case'info':
-        html+='<div class="rich-info"><span class="ri-label">'+escHtml(label)+'</span><span class="ri-value">'+linkify(escHtml(content))+'</span></div>';break;
-      case'step':
-        html+='<div class="rich-step"><span class="rs-num">'+escHtml(label||String(i+1))+'</span><div class="rs-body">'+linkify(escHtml(content))+'</div></div>';break;
-      case'note':
-        html+='<div class="rich-note">'+linkify(escHtml(content))+'</div>';break;
-      case'warn':
-        html+='<div class="rich-warn">'+escHtml(content)+'</div>';break;
-      case'link':
-        html+='<a class="rich-link" href="'+escHtml(content)+'" target="_blank">'+escHtml(label||content)+' →</a>';break;
-      case'list':
-        html+='<div class="rich-list-item"><span class="rli-bullet">•</span><span class="rli-text">'+linkify(escHtml(content))+'</span></div>';break;
-      case'table':
-        // Collect consecutive table rows
-        var tableItems=[item];
-        while(i+1<items.length&&items[i+1].type==='table'){i++;tableItems.push(items[i]);}
-        html+=renderStructuredTable(tableItems);break;
-      case'divider':
-        html+='<hr class="rich-divider">';break;
-      case'quote':
-        html+='<div class="rich-quote">'+linkify(escHtml(content))+'</div>';break;
-      default:
-        html+='<div class="rich-text">'+linkify(escHtml(content))+'</div>';
+    if(items[i].type==='table'){
+      var tableItems=[items[i]];
+      while(i+1<items.length&&items[i+1].type==='table'){i++;tableItems.push(items[i]);}
+      processed.push({type:'_table_block',items:tableItems});
+    }else{
+      processed.push(items[i]);
     }
     i++;
   }
-  return html;
-}
+  // Temporarily override renderStructuredItem to handle _table_block
+  var origFn=window.renderStructuredItem;
+  window.renderStructuredItem=function(item){
+    if(item.type==='_table_block')return renderStructuredTable(item.items);
+    return origFn(item);
+  };
+  var result=_origRenderStructured(processed);
+  window.renderStructuredItem=origFn;
+  return result;
+};
 
 function renderStructuredTable(items){
   if(!items.length)return'';
@@ -1810,7 +1960,8 @@ function addMsg(role,text,typing,uncertain){
   var div=document.createElement('div');
   div.className='msg '+role+(typing?' typing':'');
   if(role==='ai'){
-    div.innerHTML='<div class="avatar">G</div><div class="bubble'+(uncertain?' uncertain':'')+'">'
+    var avatarHtml=orgConfig&&orgConfig._mascotUrl?'<div class="avatar"><img src="'+orgConfig._mascotUrl+'" alt=""></div>':'<div class="avatar-letter">G</div>';
+    div.innerHTML=avatarHtml+'<div class="bubble'+(uncertain?' uncertain':'')+'">'
       +(typing?'':formatAnswer(text))
       +(uncertain?'<br><span class="uncertain-badge">&#9888; 不確定 — 総務に確認をおすすめします</span><span class="saved-badge">Q&Aシートに保存しました</span>':'')
       +'</div>';
