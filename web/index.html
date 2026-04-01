@@ -177,6 +177,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",sans
 .browse-empty{text-align:center;padding:32px 16px;color:#8a7e6e;font-size:.9em}
 .highlight{background:#fff3cd;padding:1px 2px;border-radius:2px}
 
+/* Suggestions */
+.suggest-item{background:#fff;border-radius:12px;padding:16px;margin-bottom:12px;border-left:4px solid #a0522d;box-shadow:0 1px 4px rgba(44,36,24,.06)}
+.suggest-item .category{font-size:.7em;font-weight:600;padding:2px 8px;border-radius:10px;display:inline-block;margin-bottom:6px}
+.suggest-item .category.cost{background:#fff3cd;color:#856404}
+.suggest-item .category.missing{background:#e3f2fd;color:#1565c0}
+.suggest-item .category.outdated{background:#ffeef0;color:#c62828}
+.suggest-item .category.inconsistency{background:#f3e5f5;color:#7b1fa2}
+.suggest-item .category.improvement{background:#e8f5e9;color:#2e7d32}
+.suggest-item h4{font-size:.9em;color:#2c2418;margin-bottom:4px}
+.suggest-item p{font-size:.85em;color:#5a5044;line-height:1.7}
+.suggest-item .sheet-ref{font-size:.75em;color:#8a7e6e;margin-top:6px}
+.suggest-date{font-size:.8em;color:#8a7e6e;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid #ece6de}
+
 footer{text-align:center;padding:24px 16px;color:#8a7e6e;font-size:.8em}
 footer a{color:#a0522d;text-decoration:none}
 footer a:hover{text-decoration:underline}
@@ -237,6 +250,7 @@ footer a:hover{text-decoration:underline}
       <button class="tab" onclick="switchTab('browse')">ルール閲覧</button>
       <button class="tab active" onclick="switchTab('chat')">AIに質問</button>
       <button class="tab" onclick="switchTab('qa')">Q&A</button>
+      <button class="tab" onclick="switchTab('suggest')" id="tabSuggestBtn" style="display:none">改善提案</button>
       <button class="tab" onclick="switchTab('admin')" id="tabAdmin" style="display:none">設定</button>
     </div>
 
@@ -273,6 +287,18 @@ footer a:hover{text-decoration:underline}
         <div id="qaStatus"></div>
         <div class="qa-log" id="qaLog"></div>
         <button class="btn-secondary" onclick="loadSpreadsheetData()" style="margin-top:12px">最新に更新</button>
+      </div>
+    </div>
+
+    <!-- Suggestions tab (admin only) -->
+    <div class="view" id="tabSuggest">
+      <div class="card">
+        <h2>AIからの改善提案</h2>
+        <p style="font-size:.85em;color:#5a5044;margin-bottom:12px">AIがルール集の内容を分析し、改善すべき点を提案します。未確定Q&Aの傾向も考慮します。</p>
+        <button class="btn-primary" id="btnAnalyze" onclick="runAnalysis()">ルール集を分析する</button>
+        <div id="suggestStatus" style="margin-top:12px"></div>
+        <div id="suggestContent" style="margin-top:12px"></div>
+        <div id="suggestHistory" style="margin-top:16px"></div>
       </div>
     </div>
 
@@ -458,9 +484,10 @@ async function showMainView(){
   document.getElementById('orgBar').innerHTML=
     '<span class="icon">&#127970;</span><div><div class="label">組織</div><div class="name">'+escHtml(currentUser.domain)+'</div></div>'+adminFlag;
 
-  // Show admin tab if admin
+  // Show admin tabs if admin
   if(isAdmin()){
     document.getElementById('tabAdmin').style.display='';
+    document.getElementById('tabSuggestBtn').style.display='';
     document.getElementById('adminSheetUrl').value=orgConfig.spreadsheetUrl||'';
     renderAdminList();
   }
@@ -477,7 +504,7 @@ function isAdmin(){
 
 // ---- Tab switching ----
 function switchTab(name){
-  var contentIds={browse:'tabBrowse',chat:'tabChat',qa:'tabQA',admin:'tabAdminContent'};
+  var contentIds={browse:'tabBrowse',chat:'tabChat',qa:'tabQA',suggest:'tabSuggest',admin:'tabAdminContent'};
   Object.keys(contentIds).forEach(function(k){
     var el=document.getElementById(contentIds[k]);
     if(el)el.classList.remove('active');
@@ -487,7 +514,7 @@ function switchTab(name){
 
   document.querySelectorAll('.tabs .tab').forEach(function(t){t.classList.remove('active');});
   var tabs=document.querySelectorAll('.tabs .tab');
-  var idx={browse:0,chat:1,qa:2,admin:3}[name]||0;
+  var idx={browse:0,chat:1,qa:2,suggest:3,admin:4}[name]||0;
   if(tabs[idx])tabs[idx].classList.add('active');
 }
 
@@ -571,6 +598,9 @@ async function loadSpreadsheetData(){
 
     // Show QA log
     if(qaData&&qaData.length>1)renderQALog(qaData);
+
+    // Load suggestion history for admins
+    if(isAdmin())loadSuggestionHistory();
 
   }catch(e){
     setStatus('rulesStatus','エラー: '+e.message,'error');
@@ -723,23 +753,60 @@ function renderQALog(qaData){
     document.getElementById('qaLog').innerHTML='<p style="color:#8a7e6e;font-size:.85em;text-align:center;padding:16px">まだQ&Aはありません</p>';
     return;
   }
+  var admin=isAdmin();
   var html='';var pendingCount=0;
   for(var i=qaData.length-1;i>=1;i--){
     var row=qaData[i];
     var isConfirmed=!!row[3];
     if(!isConfirmed)pendingCount++;
+    var rowIdx=i+1; // 1-based sheet row number
     html+='<div class="qa-item">'+
       '<div class="qa-q">Q: '+escHtml(row[1]||'')+
       '<span class="qa-status '+(isConfirmed?'confirmed':'pending')+'">'+(isConfirmed?'確定':'未確定')+'</span></div>'+
-      '<div class="qa-a">AI: '+escHtml(row[2]||'')+'</div>'+
-      (isConfirmed?'<div class="qa-a" style="color:#2e7d32;font-weight:600">確定: '+escHtml(row[3])+'</div>':'')+
-      '<div style="font-size:.75em;color:#aaa">'+escHtml(row[0]||'')+' / '+escHtml(row[5]||'')+'</div>'+
+      '<div class="qa-a">AI: '+escHtml(row[2]||'')+'</div>';
+    if(isConfirmed){
+      html+='<div class="qa-a" style="color:#2e7d32;font-weight:600">確定: '+escHtml(row[3])+'</div>';
+    }else if(admin){
+      html+='<div class="qa-confirm-row" style="display:flex;gap:6px;margin-top:6px">'+
+        '<input type="text" class="qa-confirm-input" data-row="'+rowIdx+'" placeholder="正しい回答を入力..." style="flex:1;padding:6px 10px;border:1px solid #d4cdc2;border-radius:6px;font-size:.85em;font-family:inherit">'+
+        '<button class="btn-secondary" onclick="confirmQA(this)" style="white-space:nowrap">確定</button>'+
+        '</div>';
+    }
+    html+='<div style="font-size:.75em;color:#aaa">'+escHtml(row[0]||'')+' / '+escHtml(row[5]||'')+'</div>'+
       '</div>';
   }
   document.getElementById('qaLog').innerHTML=html;
   if(pendingCount){
-    document.getElementById('qaStatus').innerHTML=
-      '<div class="status info">'+pendingCount+'件の未確定回答があります。スプレッドシートの「'+QA_SHEET+'」シートのD列に正解を入力してください。</div>';
+    var msg=pendingCount+'件の未確定回答があります。';
+    if(admin)msg+='下の入力欄から正解を入力できます。';
+    else msg+='管理者に確認を依頼してください。';
+    document.getElementById('qaStatus').innerHTML='<div class="status info">'+msg+'</div>';
+  }
+}
+
+async function confirmQA(btn){
+  var container=btn.parentElement;
+  var input=container.querySelector('.qa-confirm-input');
+  var answer=input.value.trim();
+  if(!answer)return;
+  var rowNum=input.getAttribute('data-row');
+
+  btn.disabled=true;btn.textContent='保存中...';
+  try{
+    await apiFetch(
+      'https://sheets.googleapis.com/v4/spreadsheets/'+orgConfig.spreadsheetId+
+      '/values/'+encodeURIComponent(QA_SHEET)+'!D'+rowNum+'?valueInputOption=USER_ENTERED',
+      {method:'PUT',headers:{'Content-Type':'application/json'},
+       body:JSON.stringify({values:[[answer]]})}
+    );
+    // Update UI
+    container.innerHTML='<div style="color:#2e7d32;font-weight:600;font-size:.85em">確定: '+escHtml(answer)+'</div>';
+    // Add to confirmed cache
+    var qText=container.parentElement.querySelector('.qa-q').textContent.replace('Q: ','').replace('未確定','').trim();
+    confirmedQA.push({q:qText,a:answer});
+  }catch(e){
+    alert('エラー: '+e.message);
+    btn.disabled=false;btn.textContent='確定';
   }
 }
 
@@ -834,6 +901,156 @@ async function resetOrg(){
   if(!confirm('組織設定をリセットしますか？'))return;
   localStorage.removeItem('choreia_guide_config_'+currentUser.domain);
   location.reload();
+}
+
+// ---- Suggestions (AI rule analysis) ----
+var SUGGEST_SHEET='Guide_Suggestions';
+
+async function runAnalysis(){
+  if(!rulesText){alert('ルールが読み込まれていません');return;}
+  document.getElementById('btnAnalyze').disabled=true;
+  setStatus('suggestStatus','ルール集を分析中... (30秒ほどかかります)','info');
+
+  // Gather pending Q&A for context
+  var pendingQA='';
+  try{
+    var qaRange=await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+orgConfig.spreadsheetId+'/values/'+encodeURIComponent(QA_SHEET)+'!A:F');
+    var qaRows=qaRange.values||[];
+    if(qaRows.length>1){
+      pendingQA='\n\n=== 社員からの質問で回答できなかったもの ===\n';
+      for(var i=1;i<qaRows.length;i++){
+        if(!qaRows[i][3]){// unconfirmed
+          pendingQA+='Q: '+(qaRows[i][1]||'')+'\n';
+        }
+      }
+    }
+  }catch(e){}
+
+  var today=new Date().toLocaleDateString('ja-JP',{year:'numeric',month:'long',day:'numeric'});
+  var prompt='あなたは社内ルール改善コンサルタントです。以下の社内ルール集を分析し、改善提案をしてください。\n'+
+    '今日の日付は'+today+'です。\n\n'+
+    '以下の観点で分析してください：\n'+
+    '1. **金額の妥当性**: 宿泊費・交通費・手当等の金額が現在の物価水準に対して適切か\n'+
+    '2. **不足情報**: ルールに記載がなく、社員が困りそうな項目（テレワーク、副業、服装規定など）\n'+
+    '3. **古い情報**: 年度が古い、廃止されたサービスへの言及、古いURL等\n'+
+    '4. **矛盾・不整合**: VBとM2で不必要に異なるルール、曖昧な表現\n'+
+    '5. **法改正対応**: 最新の労働基準法や税制改正への対応が必要な箇所\n'+
+    '6. **わかりにくさ**: 読みにくい表現、構造が不明確な部分\n\n'+
+    '回答はJSON形式で返してください:\n'+
+    '{"suggestions": [{"category": "cost|missing|outdated|inconsistency|improvement", "title": "提案タイトル", "detail": "具体的な提案内容", "sheet": "該当シート名", "priority": "high|medium|low"}]}\n'+
+    'suggestionsは5〜10件程度にしてください。priorityが高いものから並べてください。\n\n'+
+    '=== ルール集 ===\n'+rulesText+pendingQA;
+
+  try{
+    var body={
+      contents:[{role:'user',parts:[{text:prompt}]}],
+      generationConfig:{temperature:0.3,maxOutputTokens:4096,responseMimeType:'application/json'}
+    };
+
+    var result=null;
+    for(var m=0;m<GEMINI_MODELS.length;m++){
+      try{
+        var r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+GEMINI_MODELS[m]+':generateContent',{
+          method:'POST',
+          headers:{'Content-Type':'application/json','Authorization':'Bearer '+accessToken},
+          body:JSON.stringify(body)
+        });
+        if(r.status===429||r.status===503)continue;
+        if(!r.ok)continue;
+        var data=await r.json();
+        var text=data.candidates[0].content.parts[0].text;
+        result=JSON.parse(text);
+        break;
+      }catch(e){continue;}
+    }
+
+    if(!result||!result.suggestions){
+      setStatus('suggestStatus','分析結果を取得できませんでした','error');
+      document.getElementById('btnAnalyze').disabled=false;
+      return;
+    }
+
+    // Render suggestions
+    renderSuggestions(result.suggestions);
+
+    // Save to sheet
+    await saveSuggestions(result.suggestions);
+
+    setStatus('suggestStatus','分析完了 — '+result.suggestions.length+'件の提案','success');
+  }catch(e){
+    setStatus('suggestStatus','エラー: '+e.message,'error');
+  }
+  document.getElementById('btnAnalyze').disabled=false;
+}
+
+function renderSuggestions(suggestions){
+  var LABELS={cost:'金額の妥当性',missing:'不足情報',outdated:'古い情報',inconsistency:'矛盾・不整合',improvement:'改善提案'};
+  var html='';
+  suggestions.forEach(function(s){
+    var cat=s.category||'improvement';
+    var label=LABELS[cat]||cat;
+    html+='<div class="suggest-item">';
+    html+='<span class="category '+cat+'">'+label+'</span>';
+    if(s.priority==='high')html+=' <span style="color:#c62828;font-size:.7em;font-weight:600">&#9888; 優先度高</span>';
+    html+='<h4>'+escHtml(s.title)+'</h4>';
+    html+='<p>'+escHtml(s.detail)+'</p>';
+    if(s.sheet)html+='<div class="sheet-ref">該当シート: '+escHtml(s.sheet)+'</div>';
+    html+='</div>';
+  });
+  document.getElementById('suggestContent').innerHTML=html;
+}
+
+async function saveSuggestions(suggestions){
+  try{
+    // Ensure sheet exists
+    var meta=await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+orgConfig.spreadsheetId+'?fields=sheets(properties(title))');
+    var exists=meta.sheets.some(function(s){return s.properties.title===SUGGEST_SHEET;});
+    if(!exists){
+      await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+orgConfig.spreadsheetId+':batchUpdate',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({requests:[{addSheet:{properties:{title:SUGGEST_SHEET}}}]})
+      });
+      await apiFetch(
+        'https://sheets.googleapis.com/v4/spreadsheets/'+orgConfig.spreadsheetId+
+        '/values/'+encodeURIComponent(SUGGEST_SHEET)+'!A1:F1?valueInputOption=USER_ENTERED',
+        {method:'PUT',headers:{'Content-Type':'application/json'},
+         body:JSON.stringify({values:[['日時','カテゴリ','優先度','タイトル','詳細','該当シート']]})}
+      );
+    }
+
+    var now=new Date().toLocaleString('ja-JP');
+    var values=suggestions.map(function(s){
+      return[now,s.category||'',s.priority||'',s.title||'',s.detail||'',s.sheet||''];
+    });
+    await apiFetch(
+      'https://sheets.googleapis.com/v4/spreadsheets/'+orgConfig.spreadsheetId+
+      '/values/'+encodeURIComponent(SUGGEST_SHEET)+'!A:F:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS',
+      {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:values})}
+    );
+  }catch(e){console.error('saveSuggestions error:',e);}
+}
+
+async function loadSuggestionHistory(){
+  try{
+    var data=await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+orgConfig.spreadsheetId+'/values/'+encodeURIComponent(SUGGEST_SHEET)+'!A:F');
+    var rows=data.values||[];
+    if(rows.length<=1)return;
+    // Group by date
+    var html='<h3 style="font-size:.9em;color:#5a3e28;margin-bottom:8px">過去の提案</h3>';
+    var LABELS={cost:'金額の妥当性',missing:'不足情報',outdated:'古い情報',inconsistency:'矛盾・不整合',improvement:'改善提案'};
+    // Show latest 10
+    var start=Math.max(1,rows.length-10);
+    for(var i=rows.length-1;i>=start;i--){
+      var row=rows[i];
+      var cat=row[1]||'improvement';
+      html+='<div class="suggest-item" style="opacity:.7">';
+      html+='<span class="category '+cat+'">'+(LABELS[cat]||cat)+'</span>';
+      html+='<h4>'+escHtml(row[3]||'')+'</h4>';
+      html+='<div class="sheet-ref">'+escHtml(row[0]||'')+'</div>';
+      html+='</div>';
+    }
+    document.getElementById('suggestHistory').innerHTML=html;
+  }catch(e){}
 }
 
 // ---- Browse view ----
