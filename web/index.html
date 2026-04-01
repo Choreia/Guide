@@ -215,6 +215,28 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",sans
 .rich-divider{border:none;border-top:1px solid #ece6de;margin:16px 0}
 .rich-quote{background:#fdf5f0;border-left:4px solid #a0522d;padding:10px 14px;border-radius:0 8px 8px 0;margin:8px 0;font-size:.9em}
 
+/* Responsive */
+@media(max-width:640px){
+  .rich{font-size:.85em}
+  .rich-title{font-size:1.05em}
+  .rich-h2{font-size:.9em;padding:7px 12px}
+  .rich-info{flex-direction:column;gap:2px;padding:8px 12px}
+  .rich-info .ri-label{min-width:auto;font-size:.8em}
+  .rich-step{gap:10px;padding:8px 12px}
+  .rich-step .rs-num{width:24px;height:24px;font-size:.75em}
+  .rich-table{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .rich-table th,.rich-table td{padding:6px 8px;font-size:.8em;white-space:nowrap}
+  .rule-kv{flex-direction:column;gap:2px}
+  .rule-kv .k{min-width:auto}
+  .section-header{padding:12px 14px}
+  .section-body{padding:10px 12px}
+  .tabs{flex-wrap:wrap;gap:0}
+  .tab{font-size:.75em;padding:8px 4px}
+  .format-actions{padding:12px;gap:8px}
+  .format-actions .btn-primary{padding:12px 20px;font-size:.9em}
+  .format-actions .btn-secondary{padding:12px 16px;font-size:.85em}
+}
+
 /* Suggestions */
 .suggest-item{background:#fff;border-radius:12px;padding:16px;margin-bottom:12px;border-left:4px solid #a0522d;box-shadow:0 1px 4px rgba(44,36,24,.06)}
 .suggest-item .category{font-size:.7em;font-weight:600;padding:2px 8px;border-radius:10px;display:inline-block;margin-bottom:6px}
