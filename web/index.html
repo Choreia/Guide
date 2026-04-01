@@ -177,23 +177,43 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",sans
 .browse-empty{text-align:center;padding:32px 16px;color:#8a7e6e;font-size:.9em}
 .highlight{background:#fff3cd;padding:1px 2px;border-radius:2px}
 
-/* AI format */
+/* AI format button */
 .btn-ai-format{background:none;border:1px solid #d4cdc2;border-radius:6px;padding:2px 8px;font-size:.7em;color:#a0522d;cursor:pointer;font-family:inherit;margin-left:auto;flex-shrink:0}
 .btn-ai-format:hover{background:#fdf5f0;border-color:#a0522d}
 .btn-ai-format:disabled{opacity:.4;cursor:default}
 .format-preview{background:#fdf5f0;border:2px solid #a0522d;border-radius:12px;padding:16px;margin-top:12px}
 .format-preview .reason{font-size:.85em;color:#5a5044;margin-bottom:12px;padding:10px;background:#fff;border-radius:8px;border-left:3px solid #a0522d}
-.format-preview .formatted{font-size:.85em;line-height:1.8;color:#2c2418}
-.format-preview .formatted h4{font-size:.95em;color:#5a3e28;margin:12px 0 4px;padding-bottom:4px;border-bottom:1px solid #ece6de}
-.format-preview .formatted ul,.format-preview .formatted ol{padding-left:20px;margin:4px 0}
-.format-preview .formatted li{margin:2px 0}
-.format-preview .formatted table{border-collapse:collapse;width:100%;margin:8px 0;font-size:.9em}
-.format-preview .formatted table th{background:#f5ece5;padding:6px 8px;border:1px solid #ece6de;text-align:left;font-weight:600}
-.format-preview .formatted table td{padding:6px 8px;border:1px solid #ece6de}
-.format-preview .formatted .note{color:#8a7e6e;font-size:.9em}
-.format-preview .formatted a{color:#a0522d}
 .format-actions{display:flex;gap:8px;margin-top:12px}
 .format-badge{display:inline-block;font-size:.65em;background:#e8f5e9;color:#2e7d32;padding:1px 6px;border-radius:8px;margin-left:6px;vertical-align:middle}
+
+/* Rich Note-like rendering */
+.rich{font-size:.9em;color:#2c2418;line-height:1.8}
+.rich-title{font-size:1.15em;font-weight:700;color:#5a3e28;padding:0 0 8px;margin-bottom:12px;border-bottom:3px solid #a0522d}
+.rich-h2{font-size:1em;font-weight:700;color:#fff;background:#a0522d;padding:8px 14px;border-radius:8px;margin:20px 0 10px}
+.rich-h3{font-size:.95em;font-weight:600;color:#7a3d22;padding:6px 0 4px;margin:12px 0 6px;border-bottom:1px solid #ece6de}
+.rich-text{padding:4px 0;line-height:1.8}
+.rich-info{display:flex;gap:12px;padding:10px 14px;background:#f5ece5;border-radius:8px;margin:6px 0;align-items:baseline}
+.rich-info .ri-label{font-weight:700;color:#a0522d;min-width:80px;flex-shrink:0;font-size:.85em}
+.rich-info .ri-value{color:#2c2418}
+.rich-step{display:flex;gap:12px;padding:10px 14px;margin:6px 0;background:#fff;border:1px solid #ece6de;border-radius:10px;align-items:flex-start}
+.rich-step .rs-num{width:28px;height:28px;border-radius:50%;background:#a0522d;color:#fff;display:flex;align-items:center;justify-content:center;font-size:.8em;font-weight:700;flex-shrink:0}
+.rich-step .rs-body{flex:1;line-height:1.7}
+.rich-note{font-size:.8em;color:#8a7e6e;padding:4px 0 4px 14px;border-left:3px solid #ece6de;margin:4px 0}
+.rich-warn{font-size:.85em;color:#c62828;background:#ffeef0;padding:8px 14px;border-radius:8px;margin:6px 0}
+.rich-link{display:inline-block;padding:6px 16px;background:#f5ece5;color:#a0522d;border-radius:8px;text-decoration:none;font-size:.85em;font-weight:600;margin:6px 0;border:1px solid #d4cdc2}
+.rich-link:hover{background:#ece6de}
+.rich-list{padding:4px 0 4px 8px;margin:4px 0}
+.rich-list-item{display:flex;gap:8px;padding:4px 0;border-bottom:1px solid #f5f0eb}
+.rich-list-item:last-child{border-bottom:none}
+.rich-list-item .rli-bullet{color:#a0522d;font-weight:700;flex-shrink:0}
+.rich-list-item .rli-text{flex:1}
+.rich-table{width:100%;border-collapse:separate;border-spacing:0;margin:8px 0;border-radius:8px;overflow:hidden;border:1px solid #ece6de}
+.rich-table th{background:#5a3e28;color:#fff;padding:8px 12px;text-align:left;font-size:.85em;font-weight:600}
+.rich-table td{padding:8px 12px;border-bottom:1px solid #ece6de;font-size:.85em}
+.rich-table tr:last-child td{border-bottom:none}
+.rich-table tr:nth-child(even){background:#faf8f5}
+.rich-divider{border:none;border-top:1px solid #ece6de;margin:16px 0}
+.rich-quote{background:#fdf5f0;border-left:4px solid #a0522d;padding:10px 14px;border-radius:0 8px 8px 0;margin:8px 0;font-size:.9em}
 
 /* Suggestions */
 .suggest-item{background:#fff;border-radius:12px;padding:16px;margin-bottom:12px;border-left:4px solid #a0522d;box-shadow:0 1px 4px rgba(44,36,24,.06)}
@@ -572,12 +592,13 @@ async function loadSpreadsheetData(){
       if(name===QA_SHEET){qaData=vr.values||[];return;}
       if(name===CONFIG_SHEET){configData=vr.values||[];return;}
       if(name===FORMATTED_SHEET){
-        // Load approved formatted content: [sheetName, html, reason, status]
         var fRows=vr.values||[];
         formattedSheets={};
         for(var fi=1;fi<fRows.length;fi++){
           if(fRows[fi][3]==='approved'){
-            formattedSheets[fRows[fi][0]]={html:fRows[fi][1],reason:fRows[fi][2]};
+            try{
+              formattedSheets[fRows[fi][0]]={data:JSON.parse(fRows[fi][1]),reason:fRows[fi][2]};
+            }catch(e){/* skip malformed */}
           }
         }
         return;
@@ -1228,7 +1249,7 @@ function renderBrowse(filter){
     html+='</div>';
     html+='<div class="section-body'+(isOpen?' open':'')+'">';
     if(formattedSheets[sheet.name]&&!filterLower){
-      html+='<div class="formatted">'+formattedSheets[sheet.name].html+'</div>';
+      html+='<div class="rich">'+renderStructured(formattedSheets[sheet.name].data)+'</div>';
     }else{
       html+=renderSheetContent(filteredRows,filterLower);
     }
@@ -1374,6 +1395,76 @@ function linkify(text){
   return text.replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>');
 }
 
+// ---- Structured data renderer ----
+function renderStructured(items){
+  if(!items||!items.length)return'';
+  var html='';
+  var i=0;
+  while(i<items.length){
+    var item=items[i];
+    var t=item.type||'text';
+    var label=item.label||'';
+    var content=item.content||'';
+    switch(t){
+      case'title':
+        html+='<div class="rich-title">'+escHtml(content)+'</div>';break;
+      case'h2':
+        html+='<div class="rich-h2">'+escHtml(content)+'</div>';break;
+      case'h3':
+        html+='<div class="rich-h3">'+escHtml(content)+'</div>';break;
+      case'text':
+        html+='<div class="rich-text">'+linkify(escHtml(content))+'</div>';break;
+      case'info':
+        html+='<div class="rich-info"><span class="ri-label">'+escHtml(label)+'</span><span class="ri-value">'+linkify(escHtml(content))+'</span></div>';break;
+      case'step':
+        html+='<div class="rich-step"><span class="rs-num">'+escHtml(label||String(i+1))+'</span><div class="rs-body">'+linkify(escHtml(content))+'</div></div>';break;
+      case'note':
+        html+='<div class="rich-note">'+linkify(escHtml(content))+'</div>';break;
+      case'warn':
+        html+='<div class="rich-warn">'+escHtml(content)+'</div>';break;
+      case'link':
+        html+='<a class="rich-link" href="'+escHtml(content)+'" target="_blank">'+escHtml(label||content)+' →</a>';break;
+      case'list':
+        html+='<div class="rich-list-item"><span class="rli-bullet">•</span><span class="rli-text">'+linkify(escHtml(content))+'</span></div>';break;
+      case'table':
+        // Collect consecutive table rows
+        var tableItems=[item];
+        while(i+1<items.length&&items[i+1].type==='table'){i++;tableItems.push(items[i]);}
+        html+=renderStructuredTable(tableItems);break;
+      case'divider':
+        html+='<hr class="rich-divider">';break;
+      case'quote':
+        html+='<div class="rich-quote">'+linkify(escHtml(content))+'</div>';break;
+      default:
+        html+='<div class="rich-text">'+linkify(escHtml(content))+'</div>';
+    }
+    i++;
+  }
+  return html;
+}
+
+function renderStructuredTable(items){
+  if(!items.length)return'';
+  // Check if first item has label (use as header)
+  var hasHeader=!!items[0].label;
+  var html='<table class="rich-table">';
+  items.forEach(function(item,idx){
+    var cells=(item.content||'').split('|').map(function(c){return c.trim();});
+    if(idx===0&&hasHeader){
+      html+='<thead><tr>';
+      if(item.label)cells.unshift(item.label);
+      cells.forEach(function(c){html+='<th>'+escHtml(c)+'</th>';});
+      html+='</tr></thead><tbody>';
+    }else{
+      html+='<tr>';
+      cells.forEach(function(c){html+='<td>'+linkify(escHtml(c))+'</td>';});
+      html+='</tr>';
+    }
+  });
+  html+='</tbody></table>';
+  return html;
+}
+
 // ---- AI sheet formatting ----
 async function formatSheet(sheetName){
   var sheet=sheetsData.find(function(s){return s.name===sheetName;});
@@ -1390,15 +1481,28 @@ async function formatSheet(sheetName){
     return row.filter(function(c){return c&&c.toString().trim();}).join(' | ');
   }).join('\n');
 
-  var prompt='あなたは社内ドキュメント整理のプロです。以下の社内ルールのシート「'+sheetName+'」の内容を、読みやすく整理してください。\n\n'+
+  var prompt='あなたは社内ドキュメント整理のプロです。以下の社内ルールのシート「'+sheetName+'」の内容を、構造化データに変換してください。\n\n'+
     'ルール：\n'+
     '- 情報の追加・削除・変更は絶対にしないでください。内容はそのまま、構造と見た目だけ整理します。\n'+
-    '- HTMLで返してください（<div>内に収まるHTML断片。<html><body>等は不要）\n'+
-    '- 見出しは<h4>、箇条書きは<ul><li>、表は<table>、注釈は<p class="note">を使ってください\n'+
-    '- リンクは<a href="..." target="_blank">で残してください\n'+
-    '- 数値・金額・日付は変えないでください\n\n'+
+    '- 数値・金額・日付・URLは変えないでください。\n'+
+    '- 読みやすくするために順序を変えたり、グルーピングしてOKです。\n\n'+
+    '出力形式：JSON配列で、各要素は {type, label, content} です。\n'+
+    '使えるtype:\n'+
+    '- "title": ページタイトル（1つだけ）\n'+
+    '- "h2": 大セクション見出し（背景色付きバー）\n'+
+    '- "h3": 小見出し（下線付き）\n'+
+    '- "text": 本文テキスト\n'+
+    '- "info": ラベル付き情報（label="会社ID", content="4136-9750"）\n'+
+    '- "step": 手順ステップ（label="1", content="〇〇する"）\n'+
+    '- "list": 箇条書き項目（contentのみ）\n'+
+    '- "table": 表の行（label=ヘッダ行なら列名を|区切り, content=データを|区切り）。連続するtableは1つの表になる\n'+
+    '- "note": 注釈（※で始まる補足）\n'+
+    '- "warn": 重要な警告（罰金、義務など）\n'+
+    '- "link": リンク（label=表示テキスト, content=URL）\n'+
+    '- "quote": 引用・補足ブロック\n'+
+    '- "divider": 区切り線\n\n'+
     '回答はJSON形式で：\n'+
-    '{"html": "整理されたHTML", "reason": "何をどう整理したかの説明（日本語2-3文）"}\n\n'+
+    '{"items": [{type,label,content}, ...], "reason": "何をどう整理したかの説明（日本語2-3文）"}\n\n'+
     '=== 元データ ===\n'+rawText;
 
   try{
@@ -1427,57 +1531,48 @@ async function formatSheet(sheetName){
       }
     }
 
-    if(!result||!result.html){
+    if(!result||!result.items){
       alert('整理結果を取得できませんでした');
       if(btn){btn.disabled=false;btn.textContent='AIで整理';}
       return;
     }
 
     // Show preview with approval UI
-    showFormatPreview(sheetName,result.html,result.reason);
+    showFormatPreview(sheetName,result.items,result.reason);
   }catch(e){
     alert('エラー: '+e.message);
   }
   if(btn){btn.disabled=false;btn.textContent='AIで整理';}
 }
 
-function showFormatPreview(sheetName,html,reason){
-  // Find the section body
+var pendingFormatData={}; // {sheetName: {items, reason}}
+
+function showFormatPreview(sheetName,items,reason){
+  pendingFormatData[sheetName]={items:items,reason:reason||''};
   var sections=document.querySelectorAll('.section');
   sections.forEach(function(sec){
     var h3=sec.querySelector('h3');
     if(!h3||h3.textContent.indexOf(sheetName)<0)return;
     var body=sec.querySelector('.section-body');
     if(!body)return;
-    // Open the section
     sec.querySelector('.section-header').classList.add('open');
     body.classList.add('open');
-    // Show preview
     body.innerHTML=
       '<div class="format-preview">'+
-      '<div class="reason"><strong>AIの整理内容：</strong> '+escHtml(reason)+'</div>'+
-      '<div class="formatted">'+html+'</div>'+
+      '<div class="reason"><strong>AIの整理内容：</strong> '+escHtml(reason||'')+'</div>'+
+      '<div class="rich">'+renderStructured(items)+'</div>'+
       '<div class="format-actions">'+
       '<button class="btn-primary" onclick="approveFormat(\''+escAttr(sheetName)+'\')">承認する</button>'+
       '<button class="btn-secondary" onclick="rejectFormat(\''+escAttr(sheetName)+'\')">却下（元に戻す）</button>'+
       '</div></div>';
-    // Store pending format
-    body.setAttribute('data-pending-html',html);
-    body.setAttribute('data-pending-reason',reason);
   });
 }
 
 async function approveFormat(sheetName){
-  var sections=document.querySelectorAll('.section');
-  var pendingHtml='',pendingReason='';
-  sections.forEach(function(sec){
-    var h3=sec.querySelector('h3');
-    if(!h3||h3.textContent.indexOf(sheetName)<0)return;
-    var body=sec.querySelector('.section-body');
-    pendingHtml=body.getAttribute('data-pending-html')||'';
-    pendingReason=body.getAttribute('data-pending-reason')||'';
-  });
-  if(!pendingHtml)return;
+  var pending=pendingFormatData[sheetName];
+  if(!pending)return;
+  var jsonStr=JSON.stringify(pending.items);
+  var pendingReason=pending.reason;
 
   // Save to Guide_Formatted sheet
   try{
@@ -1506,7 +1601,7 @@ async function approveFormat(sheetName){
     }
 
     var now=new Date().toLocaleString('ja-JP');
-    var values=[[sheetName,pendingHtml,pendingReason,'approved',now]];
+    var values=[[sheetName,jsonStr,pendingReason,'approved',now]];
 
     if(rowIdx>0){
       await apiFetch(
@@ -1523,7 +1618,8 @@ async function approveFormat(sheetName){
     }
 
     // Update local state
-    formattedSheets[sheetName]={html:pendingHtml,reason:pendingReason};
+    formattedSheets[sheetName]={data:pending.items,reason:pendingReason};
+    delete pendingFormatData[sheetName];
     renderBrowse();
   }catch(e){alert('保存エラー: '+e.message);}
 }
