@@ -741,28 +741,32 @@ async function callGemini(question){
     '回答は簡潔かつ丁寧に。箇条書きを活用してください。\n\n'+
     '=== ルール集 ===\n'+rulesText+qaContext+recentChat;
 
-  var body={
-    contents:[{role:'user',parts:[{text:systemPrompt+'\n\n質問: '+question}]}],
-    generationConfig:{temperature:0.1,maxOutputTokens:1024,responseMimeType:'application/json'}
-  };
+  var questionText=systemPrompt+'\n\n質問: '+question;
+  var bodyVariants=[
+    {contents:[{role:'user',parts:[{text:questionText}]}],generationConfig:{temperature:0.1,maxOutputTokens:1024,responseMimeType:'application/json'}},
+    {contents:[{role:'user',parts:[{text:questionText+'\n\n必ずJSONのみで回答してください。'}]}],generationConfig:{temperature:0.1,maxOutputTokens:1024}}
+  ];
 
-  // Try models with fallback
   var lastError;
-  for(var m=0;m<GEMINI_MODELS.length;m++){
-    try{
-      var r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+GEMINI_MODELS[m]+':generateContent?key='+GEMINI_API_KEY,{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify(body)
-      });
-      if(!r.ok){lastError=new Error('Model '+GEMINI_MODELS[m]+': '+r.status);continue;}
-      var data=await r.json();
-      var text=data.candidates[0].content.parts[0].text;
+  for(var b=0;b<bodyVariants.length;b++){
+    for(var m=0;m<GEMINI_MODELS.length;m++){
       try{
-        var parsed=JSON.parse(text);
-        return{answer:parsed.answer||text,confidence:typeof parsed.confidence==='number'?parsed.confidence:0.5};
-      }catch(e){return{answer:text,confidence:0.5};}
-    }catch(e){lastError=e;}
+        var r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+GEMINI_MODELS[m]+':generateContent?key='+GEMINI_API_KEY,{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify(bodyVariants[b])
+        });
+        if(!r.ok){lastError=new Error(GEMINI_MODELS[m]+': '+r.status);continue;}
+        var data=await r.json();
+        if(!data.candidates||!data.candidates[0]||!data.candidates[0].content)continue;
+        var text=data.candidates[0].content.parts[0].text;
+        text=text.replace(/^```json\s*/,'').replace(/^```\s*/,'').replace(/\s*```$/,'');
+        try{
+          var parsed=JSON.parse(text);
+          return{answer:parsed.answer||text,confidence:typeof parsed.confidence==='number'?parsed.confidence:0.5};
+        }catch(e){return{answer:text,confidence:0.5};}
+      }catch(e){lastError=e;}
+    }
   }
   throw lastError||new Error('Gemini API error');
 }
@@ -1033,32 +1037,35 @@ async function runAnalysis(){
     '=== ルール集 ===\n'+rulesText+pendingQA;
 
   try{
-    var body={
-      contents:[{role:'user',parts:[{text:prompt}]}],
-      generationConfig:{temperature:0.3,maxOutputTokens:4096,responseMimeType:'application/json'}
-    };
-
+    // Try with and without responseMimeType
     var result=null;
     var lastModelError='';
-    for(var m=0;m<GEMINI_MODELS.length;m++){
-      try{
-        var r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+GEMINI_MODELS[m]+':generateContent?key='+GEMINI_API_KEY,{
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body:JSON.stringify(body)
-        });
-        if(!r.ok){lastModelError=GEMINI_MODELS[m]+': '+r.status;console.error(GEMINI_MODELS[m],r.status);continue;}
-        var data=await r.json();
-        console.log(GEMINI_MODELS[m]+' response:',data);
-        if(!data.candidates||!data.candidates[0]||!data.candidates[0].content){
-          lastModelError=GEMINI_MODELS[m]+': no candidates (blocked?)';
-          if(data.promptFeedback)console.error('promptFeedback:',data.promptFeedback);
-          continue;
-        }
-        var text=data.candidates[0].content.parts[0].text;
-        result=JSON.parse(text);
-        break;
-      }catch(e){lastModelError=GEMINI_MODELS[m]+': '+e.message;console.error(GEMINI_MODELS[m],'catch:',e);continue;}
+    var bodyVariants=[
+      {contents:[{role:'user',parts:[{text:prompt}]}],generationConfig:{temperature:0.3,maxOutputTokens:4096,responseMimeType:'application/json'}},
+      {contents:[{role:'user',parts:[{text:prompt+'\n\n必ずJSONのみで回答してください。マークダウンのコードブロックは使わないでください。'}]}],generationConfig:{temperature:0.3,maxOutputTokens:4096}}
+    ];
+    for(var b=0;b<bodyVariants.length&&!result;b++){
+      for(var m=0;m<GEMINI_MODELS.length;m++){
+        try{
+          var r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+GEMINI_MODELS[m]+':generateContent?key='+GEMINI_API_KEY,{
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify(bodyVariants[b])
+          });
+          if(!r.ok){lastModelError=GEMINI_MODELS[m]+': '+r.status;console.error(GEMINI_MODELS[m],r.status,await r.text());continue;}
+          var data=await r.json();
+          console.log(GEMINI_MODELS[m]+' response:',data);
+          if(!data.candidates||!data.candidates[0]||!data.candidates[0].content){
+            lastModelError=GEMINI_MODELS[m]+': no candidates';
+            continue;
+          }
+          var text=data.candidates[0].content.parts[0].text;
+          // Strip markdown code fences if present
+          text=text.replace(/^```json\s*/,'').replace(/^```\s*/,'').replace(/\s*```$/,'');
+          result=JSON.parse(text);
+          break;
+        }catch(e){lastModelError=GEMINI_MODELS[m]+': '+e.message;console.error(GEMINI_MODELS[m],'catch:',e);continue;}
+      }
     }
 
     if(!result||!result.suggestions){
