@@ -160,10 +160,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",sans
 .section-header .count{font-size:.75em;color:#8a7e6e}
 .section-body{display:none;padding:12px 16px;background:#fff;border-radius:0 0 12px 12px;margin-top:-8px;box-shadow:0 1px 4px rgba(44,36,24,.06)}
 .section-body.open{display:block}
-.rule-row{padding:8px 0;border-bottom:1px solid #f0ebe4;font-size:.85em;line-height:1.7;color:#3c3225}
-.rule-row:last-child{border-bottom:none}
-.rule-row .label{font-weight:600;color:#a0522d;margin-right:6px}
-.rule-row a{color:#a0522d;word-break:break-all}
+.rule-heading{font-size:1em;font-weight:700;color:#5a3e28;padding:12px 0 4px;border-bottom:2px solid #a0522d;margin-bottom:8px}
+.rule-subheading{font-size:.9em;font-weight:600;color:#7a3d22;padding:8px 0 2px}
+.rule-text{padding:4px 0;font-size:.85em;line-height:1.8;color:#3c3225}
+.rule-text a{color:#a0522d;word-break:break-all}
+.rule-list{padding:2px 0 2px 8px;font-size:.85em;line-height:1.8;color:#3c3225;border-left:3px solid #ece6de;margin:4px 0 4px 4px}
+.rule-note{font-size:.8em;color:#8a7e6e;padding:2px 0 2px 12px}
+.rule-table{width:100%;border-collapse:collapse;font-size:.8em;margin:8px 0;overflow-x:auto;display:block}
+.rule-table th{background:#f5ece5;color:#5a3e28;font-weight:600;padding:6px 8px;border:1px solid #ece6de;text-align:left;white-space:nowrap}
+.rule-table td{padding:6px 8px;border:1px solid #ece6de;color:#3c3225}
+.rule-table tr:nth-child(even){background:#faf8f5}
+.rule-kv{display:flex;gap:8px;padding:4px 0;font-size:.85em;border-bottom:1px solid #f0ebe4}
+.rule-kv:last-child{border-bottom:none}
+.rule-kv .k{font-weight:600;color:#a0522d;min-width:80px;flex-shrink:0}
+.rule-kv .v{color:#3c3225;line-height:1.7}
 .browse-empty{text-align:center;padding:32px 16px;color:#8a7e6e;font-size:.9em}
 .highlight{background:#fff3cd;padding:1px 2px;border-radius:2px}
 
@@ -840,44 +850,140 @@ function renderBrowse(filter){
     }
 
     var icon=getSheetIcon(sheet.name);
-    var isOpen=!!filterLower; // auto-open when filtering
+    var isOpen=!!filterLower;
     html+='<div class="section" data-idx="'+idx+'">';
     html+='<div class="section-header'+(isOpen?' open':'')+'" onclick="toggleSection(this)">';
     html+='<span class="arrow">&#9654;</span>';
     html+='<span class="icon">'+icon+'</span>';
     html+='<h3>'+escHtml(sheet.name)+'</h3>';
-    html+='<span class="count">'+filteredRows.length+'件</span>';
     html+='</div>';
     html+='<div class="section-body'+(isOpen?' open':'')+'">';
-
-    filteredRows.forEach(function(row){
-      var cells=row.filter(function(c){return c&&c.toString().trim();});
-      if(!cells.length)return;
-
-      html+='<div class="rule-row">';
-      // First cell as label if short, rest as content
-      if(cells.length>=2&&cells[0].toString().length<20){
-        var labelText=cells[0].toString();
-        var contentText=cells.slice(1).join(' ');
-        if(filterLower){
-          labelText=highlightText(labelText,filterLower);
-          contentText=highlightText(contentText,filterLower);
-        }
-        html+='<span class="label">'+labelText+'</span>';
-        html+=linkify(contentText);
-      }else{
-        var text=cells.join(' ');
-        if(filterLower)text=highlightText(text,filterLower);
-        html+=linkify(text);
-      }
-      html+='</div>';
-    });
-
+    html+=renderSheetContent(filteredRows,filterLower);
     html+='</div></div>';
   });
 
   if(!html)html='<div class="browse-empty">「'+escHtml(filter)+'」に一致するルールはありません</div>';
   container.innerHTML=html;
+}
+
+function renderSheetContent(rows,filterLower){
+  // Analyze structure
+  var html='';
+  var i=0;
+  while(i<rows.length){
+    var row=rows[i];
+    var cells=row.filter(function(c){return c&&c.toString().trim();});
+    if(!cells.length){i++;continue;}
+
+    var firstCell=(cells[0]||'').toString().trim();
+    var cellCount=cells.length;
+
+    // Detect table block: 3+ consecutive rows with same column count >= 3
+    var tableBlock=detectTable(rows,i);
+    if(tableBlock.length>=3){
+      html+=renderTable(tableBlock,filterLower);
+      i+=tableBlock.length;
+      continue;
+    }
+
+    // Single cell row
+    if(cellCount===1){
+      var text=firstCell;
+      if(isHeading(text)){
+        html+='<div class="rule-heading">'+hl(text,filterLower)+'</div>';
+      }else if(isSubheading(text)){
+        html+='<div class="rule-subheading">'+hl(text,filterLower)+'</div>';
+      }else if(isNote(text)){
+        html+='<div class="rule-note">'+linkify(hl(text,filterLower))+'</div>';
+      }else if(isListItem(text)){
+        html+='<div class="rule-list">'+linkify(hl(text,filterLower))+'</div>';
+      }else{
+        html+='<div class="rule-text">'+linkify(hl(text,filterLower))+'</div>';
+      }
+      i++;continue;
+    }
+
+    // Two cells: key-value pair
+    if(cellCount===2&&firstCell.length<30){
+      html+='<div class="rule-kv"><span class="k">'+hl(firstCell,filterLower)+'</span><span class="v">'+linkify(hl(cells[1].toString(),filterLower))+'</span></div>';
+      i++;continue;
+    }
+
+    // Multiple cells with short first cell: labeled content
+    if(cellCount>=2&&firstCell.length<15){
+      html+='<div class="rule-kv"><span class="k">'+hl(firstCell,filterLower)+'</span><span class="v">'+linkify(hl(cells.slice(1).join(' '),filterLower))+'</span></div>';
+      i++;continue;
+    }
+
+    // Default: text block
+    html+='<div class="rule-text">'+linkify(hl(cells.join(' '),filterLower))+'</div>';
+    i++;
+  }
+  return html;
+}
+
+function detectTable(rows,startIdx){
+  // Find consecutive rows with similar column structure (3+ non-empty cells)
+  var block=[];
+  var refCount=0;
+  for(var i=startIdx;i<rows.length;i++){
+    var cells=rows[i].filter(function(c){return c&&c.toString().trim();});
+    var count=rows[i].length; // use raw length for structure detection
+    if(i===startIdx){
+      if(cells.length<3)break;
+      refCount=count;
+      block.push(rows[i]);
+    }else{
+      // Allow some variance in column count
+      if(cells.length<2||Math.abs(count-refCount)>3)break;
+      block.push(rows[i]);
+    }
+  }
+  return block.length>=3?block:[];
+}
+
+function renderTable(block,filterLower){
+  var html='<table class="rule-table"><thead><tr>';
+  // First row as header
+  var headerRow=block[0];
+  var maxCols=0;
+  block.forEach(function(r){if(r.length>maxCols)maxCols=r.length;});
+  for(var c=0;c<maxCols;c++){
+    var val=(headerRow[c]||'').toString().trim();
+    html+='<th>'+hl(val,filterLower)+'</th>';
+  }
+  html+='</tr></thead><tbody>';
+  for(var r=1;r<block.length;r++){
+    html+='<tr>';
+    for(var c=0;c<maxCols;c++){
+      var val=(block[r][c]||'').toString().trim();
+      html+='<td>'+linkify(hl(val,filterLower))+'</td>';
+    }
+    html+='</tr>';
+  }
+  html+='</tbody></table>';
+  return html;
+}
+
+function isHeading(text){
+  // Numbered sections like "1. xxx" or titles with 【】
+  return /^[\d]+\.\s/.test(text)||/^【.+】/.test(text)||(/^[A-Z\u3000-\u9FFF]/.test(text)&&text.length<40&&!/[。、]/.test(text));
+}
+function isSubheading(text){
+  return /^[●•▶►■□◆◇▷]/.test(text)||/^[①-⑳]/.test(text)||(/^[・]/.test(text)&&text.length<60);
+}
+function isNote(text){
+  return /^[※＊\*]/.test(text);
+}
+function isListItem(text){
+  return /^[・\-－]/.test(text)||/^[a-z]\)/.test(text);
+}
+
+function hl(text,filterLower){
+  var escaped=escHtml(text);
+  if(!filterLower)return escaped;
+  var re=new RegExp('('+filterLower.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi');
+  return escaped.replace(re,'<span class="highlight">$1</span>');
 }
 
 function toggleSection(header){
@@ -889,13 +995,6 @@ function toggleSection(header){
 function filterBrowse(){
   var q=document.getElementById('browseSearch').value.trim();
   renderBrowse(q);
-}
-
-function highlightText(text,query){
-  if(!query)return escHtml(text);
-  var escaped=escHtml(text);
-  var re=new RegExp('('+query.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi');
-  return escaped.replace(re,'<span class="highlight">$1</span>');
 }
 
 function linkify(text){
