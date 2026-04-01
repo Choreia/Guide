@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Guide">
 <meta name="theme-color" content="#a0522d">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com https://apis.google.com; style-src 'self' 'unsafe-inline'; connect-src https://www.googleapis.com https://accounts.google.com https://oauth2.googleapis.com https://sheets.googleapis.com https://generativelanguage.googleapis.com; frame-src https://accounts.google.com; img-src 'self' https://*.googleusercontent.com data: blob:;">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com https://apis.google.com; style-src 'self' 'unsafe-inline'; connect-src https://www.googleapis.com https://accounts.google.com https://oauth2.googleapis.com https://sheets.googleapis.com https://generativelanguage.googleapis.com https://drive.googleapis.com; frame-src https://accounts.google.com; img-src 'self' https://*.googleusercontent.com data: blob:;">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",sans-serif;background:#faf8f5;color:#2c2418;line-height:1.6;min-height:100vh;-webkit-tap-highlight-color:transparent}
@@ -184,22 +184,10 @@ footer a:hover{text-decoration:underline}
   <div class="view" id="viewSetup">
     <div class="card">
       <h2>初期設定</h2>
-      <p style="font-size:.85em;color:#5a5044;margin-bottom:16px">組織のルール集スプレッドシートを設定します。この設定は同じドメイン（<strong id="setupDomain"></strong>）のメンバー全員に適用されます。</p>
+      <p style="font-size:.85em;color:#5a5044;margin-bottom:16px">ルール集のスプレッドシートを設定してください。この設定はこのブラウザに保存されます（ドメイン: <strong id="setupDomain"></strong>）。</p>
 
       <div class="setup-section">
-        <label>1. 設定ファイルの保存先（共有ドライブ）</label>
-        <div id="driveList"></div>
-      </div>
-
-      <div class="setup-section" id="folderSection" style="display:none">
-        <label>2. フォルダを選択</label>
-        <div id="folderBreadcrumb" class="breadcrumb"></div>
-        <div id="folderList" class="folder-list"></div>
-        <button class="btn-primary" id="btnSelectFolder" onclick="confirmFolder()" style="display:none">このフォルダに設定を保存</button>
-      </div>
-
-      <div class="setup-section" id="sheetSection" style="display:none">
-        <label>3. ルール集スプレッドシートのURL</label>
+        <label>ルール集スプレッドシートのURL</label>
         <div class="setup-row">
           <input type="text" id="setupSheetUrl" placeholder="GoogleスプレッドシートのURLを貼り付け">
         </div>
@@ -287,7 +275,7 @@ footer a:hover{text-decoration:underline}
 
 // ---- Config ----
 var CLIENT_ID='595564106580-hsrunbvfacmr23d2jopl462taqilip75.apps.googleusercontent.com';
-var SCOPES='https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/generative-language.retriever';
+var SCOPES='https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/generative-language.retriever';
 var CONFIG_FILENAME='choreia-guide-config.json';
 var QA_SHEET='Guide_QA';
 var BLOCKED_DOMAINS=['gmail.com','googlemail.com','yahoo.co.jp','yahoo.com','hotmail.com','outlook.com','outlook.jp','icloud.com','aol.com','protonmail.com','zoho.com','mail.com','yandex.com','live.com','live.jp','msn.com','me.com','mac.com'];
@@ -303,9 +291,6 @@ var confirmedQA=[];
 var chatHistory=[];
 var qaSheetEnsured=false;
 
-// ---- Setup state ----
-var setupDriveId='',setupDriveName='',setupFolderId='',setupFolderName='';
-var folderStack=[]; // breadcrumb stack
 
 // ---- Auth ----
 function initGIS(){
@@ -375,120 +360,34 @@ function extractSpreadsheetId(url){
   return m?m[1]:url.trim();
 }
 
-// ---- Org config discovery (like choreia-photos) ----
+// ---- Org config discovery (localStorage-based) ----
 async function discoverOrgConfig(){
   try{
-    // Search for config file across all drives
-    var q=encodeURIComponent("name='"+CONFIG_FILENAME+"' and mimeType='application/json' and trashed=false");
-    var searchUrl='https://www.googleapis.com/drive/v3/files?q='+q+'&fields=files(id,name,parents)&includeItemsFromAllDrives=true&supportsAllDrives=true&corpora=allDrives';
-    var result=await apiFetch(searchUrl);
-
-    for(var i=0;i<(result.files||[]).length;i++){
-      var f=result.files[i];
-      try{
-        var cfg=await apiFetch('https://www.googleapis.com/drive/v3/files/'+f.id+'?alt=media&supportsAllDrives=true');
-        if(cfg.domain===currentUser.domain){
-          orgConfig=cfg;
-          orgConfig._configFileId=f.id;
-          showMainView();
-          return;
-        }
-      }catch(e){/* skip unreadable configs */}
-    }
-    // No config found -> show setup
-    showView('viewSetup');
-    document.getElementById('setupDomain').textContent=currentUser.domain;
-    loadSharedDrives();
-  }catch(e){
-    showView('viewSetup');
-    document.getElementById('setupDomain').textContent=currentUser.domain;
-    loadSharedDrives();
-  }
-}
-
-// ---- Setup: shared drive & folder selection ----
-async function loadSharedDrives(){
-  try{
-    var drives=await apiFetch('https://www.googleapis.com/drive/v3/drives?pageSize=50');
-    var list=drives.drives||[];
-    if(list.length===0){
-      document.getElementById('driveList').innerHTML='<div class="status info">共有ドライブが見つかりません。Googleの管理者に共有ドライブの作成を依頼してください。</div>';
+    var saved=localStorage.getItem('choreia_guide_config_'+currentUser.domain);
+    if(saved){
+      orgConfig=JSON.parse(saved);
+      showMainView();
       return;
     }
-    var html='<div class="folder-list">';
-    list.forEach(function(d){
-      html+='<div class="folder-item" onclick="selectDrive(\''+d.id+'\',\''+escAttr(d.name)+'\')"><span class="icon">&#128193;</span><span>'+escHtml(d.name)+'</span></div>';
-    });
-    html+='</div>';
-    document.getElementById('driveList').innerHTML=html;
-  }catch(e){
-    document.getElementById('driveList').innerHTML='<div class="status error">'+escHtml(e.message)+'</div>';
-  }
+  }catch(e){}
+  // No config found -> show simple setup
+  showView('viewSetup');
+  document.getElementById('setupDomain').textContent=currentUser.domain;
 }
 
-async function selectDrive(driveId,driveName){
-  setupDriveId=driveId;setupDriveName=driveName;
-  setupFolderId=driveId;setupFolderName=driveName;
-  folderStack=[{id:driveId,name:driveName}];
-  document.getElementById('folderSection').style.display='';
-  await loadFolders(driveId);
-}
-
-async function loadFolders(parentId){
-  // Update breadcrumb
-  var bc=folderStack.map(function(f,i){
-    if(i===folderStack.length-1)return'<span>'+escHtml(f.name)+'</span>';
-    return'<a onclick="navToFolder('+i+')">'+escHtml(f.name)+'</a> /';
-  }).join(' ');
-  document.getElementById('folderBreadcrumb').innerHTML=bc;
-
-  try{
-    var q=encodeURIComponent("'"+parentId+"' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false");
-    var url='https://www.googleapis.com/drive/v3/files?q='+q+'&fields=files(id,name)&orderBy=name&driveId='+setupDriveId+'&corpora=drive&includeItemsFromAllDrives=true&supportsAllDrives=true&pageSize=100';
-    var result=await apiFetch(url);
-    var folders=result.files||[];
-
-    var html='';
-    folders.forEach(function(f){
-      html+='<div class="folder-item" onclick="openFolder(\''+f.id+'\',\''+escAttr(f.name)+'\')"><span class="icon">&#128193;</span><span>'+escHtml(f.name)+'</span></div>';
-    });
-    if(!folders.length)html='<div style="padding:16px;color:#8a7e6e;font-size:.85em;text-align:center">フォルダなし</div>';
-    document.getElementById('folderList').innerHTML=html;
-    document.getElementById('btnSelectFolder').style.display='';
-  }catch(e){
-    document.getElementById('folderList').innerHTML='<div class="status error">'+escHtml(e.message)+'</div>';
-  }
-}
-
-function openFolder(id,name){
-  folderStack.push({id:id,name:name});
-  setupFolderId=id;setupFolderName=name;
-  loadFolders(id);
-}
-function navToFolder(index){
-  folderStack=folderStack.slice(0,index+1);
-  var f=folderStack[folderStack.length-1];
-  setupFolderId=f.id;setupFolderName=f.name;
-  loadFolders(f.id);
-}
-
-function confirmFolder(){
-  document.getElementById('sheetSection').style.display='';
-}
-
+// ---- Setup ----
 async function completeSetup(){
   var url=document.getElementById('setupSheetUrl').value.trim();
   if(!url){setStatus('setupStatus','スプレッドシートのURLを入力してください','error');return;}
   var sid=extractSpreadsheetId(url);
   if(!sid){setStatus('setupStatus','URLが正しくありません','error');return;}
 
-  setStatus('setupStatus','設定を保存中...','info');
+  setStatus('setupStatus','スプレッドシートを確認中...','info');
 
   try{
     // Verify spreadsheet is accessible
     await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+sid+'?fields=sheets(properties(title))');
 
-    // Create config file
     var cfg={
       domain:currentUser.domain,
       admin:currentUser.email,
@@ -496,25 +395,10 @@ async function completeSetup(){
       adminName:currentUser.name,
       spreadsheetId:sid,
       spreadsheetUrl:url,
-      folderId:setupFolderId,
-      folderName:setupFolderName,
-      driveId:setupDriveId,
-      driveName:setupDriveName,
       createdAt:new Date().toISOString()
     };
-    var meta=JSON.stringify({name:CONFIG_FILENAME,parents:[setupFolderId],mimeType:'application/json'});
-    var form=new FormData();
-    form.append('metadata',new Blob([meta],{type:'application/json'}));
-    form.append('file',new Blob([JSON.stringify(cfg,null,2)],{type:'application/json'}));
-
-    var r=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true',{
-      method:'POST',headers:{Authorization:'Bearer '+accessToken},body:form
-    });
-    if(!r.ok)throw new Error('Config save failed');
-    var created=await r.json();
-
+    localStorage.setItem('choreia_guide_config_'+currentUser.domain,JSON.stringify(cfg));
     orgConfig=cfg;
-    orgConfig._configFileId=created.id;
     showMainView();
   }catch(e){
     setStatus('setupStatus','エラー: '+e.message,'error');
@@ -836,24 +720,13 @@ async function updateSheetUrl(){
 }
 
 async function resetOrg(){
-  if(!confirm('組織設定をリセットしますか？ この操作は取り消せません。'))return;
-  try{
-    await fetch('https://www.googleapis.com/drive/v3/files/'+orgConfig._configFileId+'?supportsAllDrives=true',{
-      method:'DELETE',headers:{Authorization:'Bearer '+accessToken}
-    });
-    location.reload();
-  }catch(e){alert('エラー: '+e.message);}
+  if(!confirm('組織設定をリセットしますか？'))return;
+  localStorage.removeItem('choreia_guide_config_'+currentUser.domain);
+  location.reload();
 }
 
-async function saveOrgConfig(){
-  if(!orgConfig._configFileId)return;
-  var cfg=Object.assign({},orgConfig);
-  delete cfg._configFileId;
-  await fetch('https://www.googleapis.com/upload/drive/v3/files/'+orgConfig._configFileId+'?uploadType=media&supportsAllDrives=true',{
-    method:'PATCH',
-    headers:{Authorization:'Bearer '+accessToken,'Content-Type':'application/json'},
-    body:JSON.stringify(cfg,null,2)
-  });
+function saveOrgConfig(){
+  localStorage.setItem('choreia_guide_config_'+currentUser.domain,JSON.stringify(orgConfig));
 }
 
 // ---- UI helpers ----
