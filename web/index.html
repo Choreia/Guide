@@ -358,13 +358,14 @@ footer a:hover{text-decoration:underline}
 
 // ---- Config ----
 var CLIENT_ID='595564106580-hsrunbvfacmr23d2jopl462taqilip75.apps.googleusercontent.com';
-var SCOPES='openid email profile https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/generative-language.retriever';
+var SCOPES='openid email profile https://www.googleapis.com/auth/spreadsheets';
 var CONFIG_FILENAME='choreia-guide-config.json';
 var QA_SHEET='Guide_QA';
 var CONFIG_SHEET='Guide_Config';
 var FORMATTED_SHEET='Guide_Formatted';
 var BLOCKED_DOMAINS=['gmail.com','googlemail.com','yahoo.co.jp','yahoo.com','hotmail.com','outlook.com','outlook.jp','icloud.com','aol.com','protonmail.com','zoho.com','mail.com','yandex.com','live.com','live.jp','msn.com','me.com','mac.com'];
-var GEMINI_MODELS=['gemini-2.0-flash','gemini-2.0-flash-lite','gemini-1.5-flash','gemini-pro','gemini-1.5-pro'];
+var GEMINI_API_KEY='AIzaSyAKb71kDrNYtHAUFsIsiz6D77RlcnE8uDA';
+var GEMINI_MODELS=['gemini-2.0-flash','gemini-2.0-flash-lite','gemini-1.5-flash'];
 
 // ---- State ----
 var tokenClient=null,accessToken=null;
@@ -981,9 +982,9 @@ async function runAnalysis(){
     var lastModelError='';
     for(var m=0;m<GEMINI_MODELS.length;m++){
       try{
-        var r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+GEMINI_MODELS[m]+':generateContent',{
+        var r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+GEMINI_MODELS[m]+':generateContent?key='+GEMINI_API_KEY,{
           method:'POST',
-          headers:{'Content-Type':'application/json','Authorization':'Bearer '+accessToken},
+          headers:{'Content-Type':'application/json'},
           body:JSON.stringify(body)
         });
         if(!r.ok){lastModelError=GEMINI_MODELS[m]+': '+r.status;continue;}
@@ -1336,9 +1337,9 @@ async function formatSheet(sheetName){
     var result=null;
     for(var m=0;m<GEMINI_MODELS.length;m++){
       try{
-        var r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+GEMINI_MODELS[m]+':generateContent',{
+        var r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+GEMINI_MODELS[m]+':generateContent?key='+GEMINI_API_KEY,{
           method:'POST',
-          headers:{'Content-Type':'application/json','Authorization':'Bearer '+accessToken},
+          headers:{'Content-Type':'application/json'},
           body:JSON.stringify(body)
         });
         if(!r.ok)continue;
