@@ -1047,12 +1047,18 @@ async function runAnalysis(){
           headers:{'Content-Type':'application/json'},
           body:JSON.stringify(body)
         });
-        if(!r.ok){lastModelError=GEMINI_MODELS[m]+': '+r.status;continue;}
+        if(!r.ok){lastModelError=GEMINI_MODELS[m]+': '+r.status;console.error(GEMINI_MODELS[m],r.status);continue;}
         var data=await r.json();
+        console.log(GEMINI_MODELS[m]+' response:',data);
+        if(!data.candidates||!data.candidates[0]||!data.candidates[0].content){
+          lastModelError=GEMINI_MODELS[m]+': no candidates (blocked?)';
+          if(data.promptFeedback)console.error('promptFeedback:',data.promptFeedback);
+          continue;
+        }
         var text=data.candidates[0].content.parts[0].text;
         result=JSON.parse(text);
         break;
-      }catch(e){lastModelError=e.message;continue;}
+      }catch(e){lastModelError=GEMINI_MODELS[m]+': '+e.message;console.error(GEMINI_MODELS[m],'catch:',e);continue;}
     }
 
     if(!result||!result.suggestions){
