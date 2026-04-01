@@ -518,7 +518,8 @@ async function showMainView(){
     document.getElementById('tabAdmin').style.display='';
     document.getElementById('tabSuggestBtn').style.display='';
     document.getElementById('adminSheetUrl').value=orgConfig.spreadsheetUrl||'';
-    if(GEMINI_API_KEY)document.getElementById('adminApiKey').value=GEMINI_API_KEY;
+    document.getElementById('adminApiKey').value=GEMINI_API_KEY?'••••••••••••':'';
+    document.getElementById('adminApiKey').placeholder=GEMINI_API_KEY?'設定済み — 変更する場合は新しいキーを入力':'APIキーを入力';
     renderAdminList();
   }
 
@@ -614,6 +615,14 @@ async function loadSpreadsheetData(){
     }
     // Fallback: detect from domain
     if(!userAffiliation)userAffiliation=detectAffiliationFromDomain();
+    // Fallback: load API key from localStorage
+    if(!GEMINI_API_KEY){
+      var savedKey=localStorage.getItem('choreia_guide_gemini_key');
+      if(savedKey)GEMINI_API_KEY=savedKey;
+    }else{
+      // Sync to localStorage
+      localStorage.setItem('choreia_guide_gemini_key',GEMINI_API_KEY);
+    }
     // Save updated config to localStorage
     localStorage.setItem('choreia_guide_config_'+currentUser.domain,JSON.stringify(orgConfig));
 
@@ -947,6 +956,8 @@ async function saveApiKey(){
   var key=document.getElementById('adminApiKey').value.trim();
   if(!key)return;
   GEMINI_API_KEY=key;
+  // Always save to localStorage as backup
+  localStorage.setItem('choreia_guide_gemini_key',key);
   try{
     await ensureConfigSheet();
     // Check if gemini_api_key row exists
@@ -971,8 +982,10 @@ async function saveApiKey(){
          body:JSON.stringify({values:[['gemini_api_key',key]]})}
       );
     }
-    alert('APIキーを保存しました');
-  }catch(e){alert('エラー: '+e.message);}
+    alert('APIキーを保存しました（スプレッドシート＋ローカル）');
+  }catch(e){
+    alert('スプレッドシートへの保存に失敗しましたが、ローカルには保存済みです: '+e.message);
+  }
 }
 
 async function resetOrg(){
