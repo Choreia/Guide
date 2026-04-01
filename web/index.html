@@ -1042,6 +1042,27 @@ async function runAnalysis(){
     }
   }catch(e){}
 
+  // Gather previous unresolved suggestions
+  var prevSuggestions='';
+  try{
+    var meta=await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+orgConfig.spreadsheetId+'?fields=sheets(properties(title))');
+    if(meta.sheets.some(function(s){return s.properties.title===SUGGEST_SHEET;})){
+      var sugData=await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+orgConfig.spreadsheetId+'/values/'+encodeURIComponent(SUGGEST_SHEET)+'!A:G');
+      var sugRows=sugData.values||[];
+      var unresolvedList=[];
+      for(var i=1;i<sugRows.length;i++){
+        if((sugRows[i][6]||'')!=='対応済み'){
+          unresolvedList.push(sugRows[i][3]||'');
+        }
+      }
+      if(unresolvedList.length){
+        prevSuggestions='\n\n=== 前回の未対応の提案（まだ改善されていないか確認してください） ===\n';
+        unresolvedList.forEach(function(t){prevSuggestions+='- '+t+'\n';});
+        prevSuggestions+='上記がルール集で改善されていれば、statusを"対応済み"にしてください。まだ改善されていなければ再度提案に含めてください。\n';
+      }
+    }
+  }catch(e){}
+
   var today=new Date().toLocaleDateString('ja-JP',{year:'numeric',month:'long',day:'numeric'});
   var prompt='あなたは社内ルール改善コンサルタントです。以下の社内ルール集を分析し、改善提案をしてください。\n'+
     '今日の日付は'+today+'です。\n\n'+
@@ -1053,17 +1074,18 @@ async function runAnalysis(){
     '5. **法改正対応**: 最新の労働基準法や税制改正への対応が必要な箇所\n'+
     '6. **わかりにくさ**: 読みにくい表現、構造が不明確な部分\n\n'+
     '回答はJSON形式で返してください:\n'+
-    '{"suggestions": [{"category": "cost|missing|outdated|inconsistency|improvement", "title": "提案タイトル", "detail": "具体的な提案内容", "sheet": "該当シート名", "priority": "high|medium|low"}]}\n'+
-    'suggestionsは5〜10件程度にしてください。priorityが高いものから並べてください。\n\n'+
-    '=== ルール集 ===\n'+rulesText+pendingQA;
+    '{"suggestions": [{"category": "cost|missing|outdated|inconsistency|improvement", "title": "提案タイトル", "detail": "具体的な提案内容", "sheet": "該当シート名", "priority": "high|medium|low", "status": "未対応|対応済み"}]}\n'+
+    'suggestionsは5〜10件程度にしてください。priorityが高いものから並べてください。\n'+
+    '前回の提案が改善されていればstatus:"対応済み"として含めてください。\n\n'+
+    '=== ルール集 ===\n'+rulesText+pendingQA+prevSuggestions;
 
   try{
     // Try with and without responseMimeType
     var result=null;
     var lastModelError='';
     var bodyVariants=[
-      {contents:[{role:'user',parts:[{text:prompt}]}],generationConfig:{temperature:0.3,maxOutputTokens:16384,responseMimeType:'application/json'}},
-      {contents:[{role:'user',parts:[{text:prompt+'\n\n必ずJSONのみで回答してください。マークダウンのコードブロックは使わないでください。'}]}],generationConfig:{temperature:0.3,maxOutputTokens:16384}}
+      {contents:[{role:'user',parts:[{text:prompt}]}],generationConfig:{temperature:0.3,maxOutputTokens:65536,responseMimeType:'application/json'}},
+      {contents:[{role:'user',parts:[{text:prompt+'\n\n必ずJSONのみで回答してください。マークダウンのコードブロックは使わないでください。'}]}],generationConfig:{temperature:0.3,maxOutputTokens:65536}}
     ];
     for(var b=0;b<bodyVariants.length&&!result;b++){
       for(var m=0;m<GEMINI_MODELS.length;m++){
@@ -1095,11 +1117,11 @@ async function runAnalysis(){
       return;
     }
 
-    // Render suggestions
-    renderSuggestions(result.suggestions);
+    // Save to sheet and get row numbers
+    var startRow=await saveSuggestions(result.suggestions);
 
-    // Save to sheet
-    await saveSuggestions(result.suggestions);
+    // Render suggestions with row references for marking resolved
+    renderSuggestions(result.suggestions,startRow);
 
     setStatus('suggestStatus','分析完了 — '+result.suggestions.length+'件の提案','success');
   }catch(e){
@@ -1108,26 +1130,52 @@ async function runAnalysis(){
   document.getElementById('btnAnalyze').disabled=false;
 }
 
-function renderSuggestions(suggestions){
+function renderSuggestions(suggestions,savedRows){
   var LABELS={cost:'金額の妥当性',missing:'不足情報',outdated:'古い情報',inconsistency:'矛盾・不整合',improvement:'改善提案'};
   var html='';
-  suggestions.forEach(function(s){
+  suggestions.forEach(function(s,idx){
     var cat=s.category||'improvement';
     var label=LABELS[cat]||cat;
-    html+='<div class="suggest-item">';
+    var resolved=s.status==='対応済み';
+    html+='<div class="suggest-item'+(resolved?' resolved':'')+'" style="'+(resolved?'opacity:.5':'')+'">';
+    html+='<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">';
     html+='<span class="category '+cat+'">'+label+'</span>';
-    if(s.priority==='high')html+=' <span style="color:#c62828;font-size:.7em;font-weight:600">&#9888; 優先度高</span>';
-    html+='<h4>'+escHtml(s.title)+'</h4>';
+    if(s.priority==='high'&&!resolved)html+='<span style="color:#c62828;font-size:.7em;font-weight:600">&#9888; 優先度高</span>';
+    if(resolved)html+='<span style="color:#2e7d32;font-size:.7em;font-weight:600">&#10003; 対応済み</span>';
+    html+='</div>';
+    html+='<h4 style="cursor:pointer" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display===\'none\'?\'block\':\'none\'">'+escHtml(s.title)+' <span style="font-size:.7em;color:#8a7e6e">&#9660;</span></h4>';
+    html+='<div style="display:none">';
     html+='<p>'+escHtml(s.detail)+'</p>';
     if(s.sheet)html+='<div class="sheet-ref">該当シート: '+escHtml(s.sheet)+'</div>';
-    html+='</div>';
+    if(!resolved){
+      var rowIdx=savedRows?savedRows+idx:-1;
+      html+='<button class="btn-secondary" style="margin-top:8px;font-size:.8em" onclick="markResolved(this,'+rowIdx+')">&#10003; 対応済みにする</button>';
+    }
+    html+='</div></div>';
   });
   document.getElementById('suggestContent').innerHTML=html;
 }
 
-async function saveSuggestions(suggestions){
+async function markResolved(btn,sheetRow){
+  btn.disabled=true;btn.textContent='保存中...';
   try{
-    // Ensure sheet exists
+    if(sheetRow>0){
+      await apiFetch(
+        'https://sheets.googleapis.com/v4/spreadsheets/'+orgConfig.spreadsheetId+
+        '/values/'+encodeURIComponent(SUGGEST_SHEET)+'!G'+sheetRow+'?valueInputOption=USER_ENTERED',
+        {method:'PUT',headers:{'Content-Type':'application/json'},
+         body:JSON.stringify({values:[['対応済み']]})}
+      );
+    }
+    var item=btn.closest('.suggest-item');
+    item.style.opacity='.5';
+    btn.parentElement.innerHTML='<span style="color:#2e7d32;font-size:.85em;font-weight:600">&#10003; 対応済み</span>';
+  }catch(e){btn.disabled=false;btn.textContent='対応済みにする';alert('エラー: '+e.message);}
+}
+
+async function saveSuggestions(suggestions){
+  var startRow=-1;
+  try{
     var meta=await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+orgConfig.spreadsheetId+'?fields=sheets(properties(title))');
     var exists=meta.sheets.some(function(s){return s.properties.title===SUGGEST_SHEET;});
     if(!exists){
@@ -1137,22 +1185,26 @@ async function saveSuggestions(suggestions){
       });
       await apiFetch(
         'https://sheets.googleapis.com/v4/spreadsheets/'+orgConfig.spreadsheetId+
-        '/values/'+encodeURIComponent(SUGGEST_SHEET)+'!A1:F1?valueInputOption=USER_ENTERED',
+        '/values/'+encodeURIComponent(SUGGEST_SHEET)+'!A1:G1?valueInputOption=USER_ENTERED',
         {method:'PUT',headers:{'Content-Type':'application/json'},
-         body:JSON.stringify({values:[['日時','カテゴリ','優先度','タイトル','詳細','該当シート']]})}
+         body:JSON.stringify({values:[['日時','カテゴリ','優先度','タイトル','詳細','該当シート','ステータス']]})}
       );
     }
 
     var now=new Date().toLocaleString('ja-JP');
     var values=suggestions.map(function(s){
-      return[now,s.category||'',s.priority||'',s.title||'',s.detail||'',s.sheet||''];
+      return[now,s.category||'',s.priority||'',s.title||'',s.detail||'',s.sheet||'',s.status||'未対応'];
     });
     await apiFetch(
       'https://sheets.googleapis.com/v4/spreadsheets/'+orgConfig.spreadsheetId+
-      '/values/'+encodeURIComponent(SUGGEST_SHEET)+'!A:F:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS',
+      '/values/'+encodeURIComponent(SUGGEST_SHEET)+'!A:G:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS',
       {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:values})}
     );
+    // Get current row count to calculate start row
+    var current=await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+orgConfig.spreadsheetId+'/values/'+encodeURIComponent(SUGGEST_SHEET)+'!A:A');
+    startRow=(current.values?current.values.length:1)-suggestions.length+1;
   }catch(e){console.error('saveSuggestions error:',e);}
+  return startRow;
 }
 
 async function loadSuggestionHistory(){
@@ -1160,24 +1212,33 @@ async function loadSuggestionHistory(){
     // Check if sheet exists first
     var meta=await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+orgConfig.spreadsheetId+'?fields=sheets(properties(title))');
     if(!meta.sheets.some(function(s){return s.properties.title===SUGGEST_SHEET;}))return;
-    var data=await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+orgConfig.spreadsheetId+'/values/'+encodeURIComponent(SUGGEST_SHEET)+'!A:F');
+    var data=await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+orgConfig.spreadsheetId+'/values/'+encodeURIComponent(SUGGEST_SHEET)+'!A:G');
     var rows=data.values||[];
     if(rows.length<=1)return;
-    // Group by date
-    var html='<h3 style="font-size:.9em;color:#5a3e28;margin-bottom:8px">過去の提案</h3>';
     var LABELS={cost:'金額の妥当性',missing:'不足情報',outdated:'古い情報',inconsistency:'矛盾・不整合',improvement:'改善提案'};
-    // Show latest 10
-    var start=Math.max(1,rows.length-10);
+    var pendingCount=0,resolvedCount=0;
+    var html='';
+    var start=Math.max(1,rows.length-20);
     for(var i=rows.length-1;i>=start;i--){
       var row=rows[i];
       var cat=row[1]||'improvement';
-      html+='<div class="suggest-item" style="opacity:.7">';
+      var resolved=(row[6]||'')==='対応済み';
+      if(resolved)resolvedCount++;else pendingCount++;
+      html+='<div class="suggest-item" style="'+(resolved?'opacity:.5':'')+'">';
+      html+='<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">';
       html+='<span class="category '+cat+'">'+(LABELS[cat]||cat)+'</span>';
-      html+='<h4>'+escHtml(row[3]||'')+'</h4>';
-      html+='<div class="sheet-ref">'+escHtml(row[0]||'')+'</div>';
+      if(resolved)html+='<span style="color:#2e7d32;font-size:.7em;font-weight:600">&#10003; 対応済み</span>';
       html+='</div>';
+      html+='<h4 style="cursor:pointer" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display===\'none\'?\'block\':\'none\'">'+escHtml(row[3]||'')+' <span style="font-size:.7em;color:#8a7e6e">&#9660;</span></h4>';
+      html+='<div style="display:none">';
+      html+='<p style="font-size:.85em;color:#5a5044">'+escHtml(row[4]||'')+'</p>';
+      if(row[5])html+='<div class="sheet-ref">該当シート: '+escHtml(row[5])+'</div>';
+      html+='<div class="sheet-ref">'+escHtml(row[0]||'')+'</div>';
+      if(!resolved)html+='<button class="btn-secondary" style="margin-top:6px;font-size:.8em" onclick="markResolved(this,'+(i+1)+')">&#10003; 対応済みにする</button>';
+      html+='</div></div>';
     }
-    document.getElementById('suggestHistory').innerHTML=html;
+    var summary='<h3 style="font-size:.9em;color:#5a3e28;margin-bottom:8px">過去の提案 <span style="font-size:.8em;color:#8a7e6e">(未対応: '+pendingCount+' / 対応済み: '+resolvedCount+')</span></h3>';
+    document.getElementById('suggestHistory').innerHTML=summary+html;
   }catch(e){}
 }
 
@@ -1507,8 +1568,8 @@ async function formatSheet(sheetName){
 
   try{
     var bodyVariants=[
-      {contents:[{role:'user',parts:[{text:prompt}]}],generationConfig:{temperature:0.1,maxOutputTokens:16384,responseMimeType:'application/json'}},
-      {contents:[{role:'user',parts:[{text:prompt+'\n\n必ずJSONのみで回答してください。マークダウンのコードブロックは使わないでください。'}]}],generationConfig:{temperature:0.1,maxOutputTokens:16384}}
+      {contents:[{role:'user',parts:[{text:prompt}]}],generationConfig:{temperature:0.1,maxOutputTokens:65536,responseMimeType:'application/json'}},
+      {contents:[{role:'user',parts:[{text:prompt+'\n\n必ずJSONのみで回答してください。マークダウンのコードブロックは使わないでください。'}]}],generationConfig:{temperature:0.1,maxOutputTokens:65536}}
     ];
 
     var result=null;
