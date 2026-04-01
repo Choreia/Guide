@@ -177,6 +177,24 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",sans
 .browse-empty{text-align:center;padding:32px 16px;color:#8a7e6e;font-size:.9em}
 .highlight{background:#fff3cd;padding:1px 2px;border-radius:2px}
 
+/* AI format */
+.btn-ai-format{background:none;border:1px solid #d4cdc2;border-radius:6px;padding:2px 8px;font-size:.7em;color:#a0522d;cursor:pointer;font-family:inherit;margin-left:auto;flex-shrink:0}
+.btn-ai-format:hover{background:#fdf5f0;border-color:#a0522d}
+.btn-ai-format:disabled{opacity:.4;cursor:default}
+.format-preview{background:#fdf5f0;border:2px solid #a0522d;border-radius:12px;padding:16px;margin-top:12px}
+.format-preview .reason{font-size:.85em;color:#5a5044;margin-bottom:12px;padding:10px;background:#fff;border-radius:8px;border-left:3px solid #a0522d}
+.format-preview .formatted{font-size:.85em;line-height:1.8;color:#2c2418}
+.format-preview .formatted h4{font-size:.95em;color:#5a3e28;margin:12px 0 4px;padding-bottom:4px;border-bottom:1px solid #ece6de}
+.format-preview .formatted ul,.format-preview .formatted ol{padding-left:20px;margin:4px 0}
+.format-preview .formatted li{margin:2px 0}
+.format-preview .formatted table{border-collapse:collapse;width:100%;margin:8px 0;font-size:.9em}
+.format-preview .formatted table th{background:#f5ece5;padding:6px 8px;border:1px solid #ece6de;text-align:left;font-weight:600}
+.format-preview .formatted table td{padding:6px 8px;border:1px solid #ece6de}
+.format-preview .formatted .note{color:#8a7e6e;font-size:.9em}
+.format-preview .formatted a{color:#a0522d}
+.format-actions{display:flex;gap:8px;margin-top:12px}
+.format-badge{display:inline-block;font-size:.65em;background:#e8f5e9;color:#2e7d32;padding:1px 6px;border-radius:8px;margin-left:6px;vertical-align:middle}
+
 /* Suggestions */
 .suggest-item{background:#fff;border-radius:12px;padding:16px;margin-bottom:12px;border-left:4px solid #a0522d;box-shadow:0 1px 4px rgba(44,36,24,.06)}
 .suggest-item .category{font-size:.7em;font-weight:600;padding:2px 8px;border-radius:10px;display:inline-block;margin-bottom:6px}
@@ -344,8 +362,9 @@ var SCOPES='openid email profile https://www.googleapis.com/auth/spreadsheets ht
 var CONFIG_FILENAME='choreia-guide-config.json';
 var QA_SHEET='Guide_QA';
 var CONFIG_SHEET='Guide_Config';
+var FORMATTED_SHEET='Guide_Formatted';
 var BLOCKED_DOMAINS=['gmail.com','googlemail.com','yahoo.co.jp','yahoo.com','hotmail.com','outlook.com','outlook.jp','icloud.com','aol.com','protonmail.com','zoho.com','mail.com','yandex.com','live.com','live.jp','msn.com','me.com','mac.com'];
-var GEMINI_MODELS=['gemini-2.5-flash','gemini-2.0-flash','gemini-1.5-flash'];
+var GEMINI_MODELS=['gemini-2.0-flash','gemini-2.0-flash-lite','gemini-1.5-flash','gemini-pro','gemini-1.5-pro'];
 
 // ---- State ----
 var tokenClient=null,accessToken=null;
@@ -358,6 +377,7 @@ var confirmedQA=[];
 var chatHistory=[];
 var qaSheetEnsured=false;
 var userAffiliation=''; // 'VB' or 'M2', loaded from config or domain
+var formattedSheets={}; // {sheetName: {html, reason, approved}} from Guide_Formatted
 
 
 // ---- Auth ----
@@ -540,6 +560,17 @@ async function loadSpreadsheetData(){
       var name=sheetNames[i];
       if(name===QA_SHEET){qaData=vr.values||[];return;}
       if(name===CONFIG_SHEET){configData=vr.values||[];return;}
+      if(name===FORMATTED_SHEET){
+        // Load approved formatted content: [sheetName, html, reason, status]
+        var fRows=vr.values||[];
+        formattedSheets={};
+        for(var fi=1;fi<fRows.length;fi++){
+          if(fRows[fi][3]==='approved'){
+            formattedSheets[fRows[fi][0]]={html:fRows[fi][1],reason:fRows[fi][2]};
+          }
+        }
+        return;
+      }
       var rows=[];
       allText+='\n\n=== '+name+' ===\n';
       if(vr.values){
@@ -699,8 +730,7 @@ async function callGemini(question){
         headers:{'Content-Type':'application/json','Authorization':'Bearer '+accessToken},
         body:JSON.stringify(body)
       });
-      if(r.status===429||r.status===503){lastError=new Error('Rate limited');continue;}
-      if(!r.ok){var err=await r.text();throw new Error(err);}
+      if(!r.ok){lastError=new Error('Model '+GEMINI_MODELS[m]+': '+r.status);continue;}
       var data=await r.json();
       var text=data.candidates[0].content.parts[0].text;
       try{
@@ -948,6 +978,7 @@ async function runAnalysis(){
     };
 
     var result=null;
+    var lastModelError='';
     for(var m=0;m<GEMINI_MODELS.length;m++){
       try{
         var r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+GEMINI_MODELS[m]+':generateContent',{
@@ -955,17 +986,16 @@ async function runAnalysis(){
           headers:{'Content-Type':'application/json','Authorization':'Bearer '+accessToken},
           body:JSON.stringify(body)
         });
-        if(r.status===429||r.status===503)continue;
-        if(!r.ok)continue;
+        if(!r.ok){lastModelError=GEMINI_MODELS[m]+': '+r.status;continue;}
         var data=await r.json();
         var text=data.candidates[0].content.parts[0].text;
         result=JSON.parse(text);
         break;
-      }catch(e){continue;}
+      }catch(e){lastModelError=e.message;continue;}
     }
 
     if(!result||!result.suggestions){
-      setStatus('suggestStatus','分析結果を取得できませんでした','error');
+      setStatus('suggestStatus','分析結果を取得できませんでした'+(lastModelError?' ('+lastModelError+')':''),'error');
       document.getElementById('btnAnalyze').disabled=false;
       return;
     }
@@ -1032,6 +1062,9 @@ async function saveSuggestions(suggestions){
 
 async function loadSuggestionHistory(){
   try{
+    // Check if sheet exists first
+    var meta=await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+orgConfig.spreadsheetId+'?fields=sheets(properties(title))');
+    if(!meta.sheets.some(function(s){return s.properties.title===SUGGEST_SHEET;}))return;
     var data=await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+orgConfig.spreadsheetId+'/values/'+encodeURIComponent(SUGGEST_SHEET)+'!A:F');
     var rows=data.values||[];
     if(rows.length<=1)return;
@@ -1116,10 +1149,15 @@ function renderBrowse(filter){
     html+='<div class="section-header'+(isOpen?' open':'')+'" onclick="toggleSection(this)">';
     html+='<span class="arrow">&#9654;</span>';
     html+='<span class="icon">'+icon+'</span>';
-    html+='<h3>'+escHtml(sheet.name)+'</h3>';
+    html+='<h3>'+escHtml(sheet.name)+(formattedSheets[sheet.name]?'<span class="format-badge">AI整理済</span>':'')+'</h3>';
+    if(isAdmin())html+='<button class="btn-ai-format" onclick="event.stopPropagation();formatSheet(\''+escAttr(sheet.name)+'\')">AIで整理</button>';
     html+='</div>';
     html+='<div class="section-body'+(isOpen?' open':'')+'">';
-    html+=renderSheetContent(filteredRows,filterLower);
+    if(formattedSheets[sheet.name]&&!filterLower){
+      html+='<div class="formatted">'+formattedSheets[sheet.name].html+'</div>';
+    }else{
+      html+=renderSheetContent(filteredRows,filterLower);
+    }
     html+='</div></div>';
   });
 
@@ -1260,6 +1298,160 @@ function filterBrowse(){
 
 function linkify(text){
   return text.replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>');
+}
+
+// ---- AI sheet formatting ----
+async function formatSheet(sheetName){
+  var sheet=sheetsData.find(function(s){return s.name===sheetName;});
+  if(!sheet)return;
+
+  // Find the button and disable it
+  var buttons=document.querySelectorAll('.btn-ai-format');
+  var btn=null;
+  buttons.forEach(function(b){if(b.parentElement.querySelector('h3').textContent.indexOf(sheetName)>=0){btn=b;}});
+  if(btn){btn.disabled=true;btn.textContent='整理中...';}
+
+  // Build raw text from sheet
+  var rawText=sheet.rows.map(function(row){
+    return row.filter(function(c){return c&&c.toString().trim();}).join(' | ');
+  }).join('\n');
+
+  var prompt='あなたは社内ドキュメント整理のプロです。以下の社内ルールのシート「'+sheetName+'」の内容を、読みやすく整理してください。\n\n'+
+    'ルール：\n'+
+    '- 情報の追加・削除・変更は絶対にしないでください。内容はそのまま、構造と見た目だけ整理します。\n'+
+    '- HTMLで返してください（<div>内に収まるHTML断片。<html><body>等は不要）\n'+
+    '- 見出しは<h4>、箇条書きは<ul><li>、表は<table>、注釈は<p class="note">を使ってください\n'+
+    '- リンクは<a href="..." target="_blank">で残してください\n'+
+    '- 数値・金額・日付は変えないでください\n\n'+
+    '回答はJSON形式で：\n'+
+    '{"html": "整理されたHTML", "reason": "何をどう整理したかの説明（日本語2-3文）"}\n\n'+
+    '=== 元データ ===\n'+rawText;
+
+  try{
+    var body={
+      contents:[{role:'user',parts:[{text:prompt}]}],
+      generationConfig:{temperature:0.1,maxOutputTokens:8192,responseMimeType:'application/json'}
+    };
+
+    var result=null;
+    for(var m=0;m<GEMINI_MODELS.length;m++){
+      try{
+        var r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+GEMINI_MODELS[m]+':generateContent',{
+          method:'POST',
+          headers:{'Content-Type':'application/json','Authorization':'Bearer '+accessToken},
+          body:JSON.stringify(body)
+        });
+        if(!r.ok)continue;
+        var data=await r.json();
+        var text=data.candidates[0].content.parts[0].text;
+        result=JSON.parse(text);
+        break;
+      }catch(e){continue;}
+    }
+
+    if(!result||!result.html){
+      alert('整理結果を取得できませんでした');
+      if(btn){btn.disabled=false;btn.textContent='AIで整理';}
+      return;
+    }
+
+    // Show preview with approval UI
+    showFormatPreview(sheetName,result.html,result.reason);
+  }catch(e){
+    alert('エラー: '+e.message);
+  }
+  if(btn){btn.disabled=false;btn.textContent='AIで整理';}
+}
+
+function showFormatPreview(sheetName,html,reason){
+  // Find the section body
+  var sections=document.querySelectorAll('.section');
+  sections.forEach(function(sec){
+    var h3=sec.querySelector('h3');
+    if(!h3||h3.textContent.indexOf(sheetName)<0)return;
+    var body=sec.querySelector('.section-body');
+    if(!body)return;
+    // Open the section
+    sec.querySelector('.section-header').classList.add('open');
+    body.classList.add('open');
+    // Show preview
+    body.innerHTML=
+      '<div class="format-preview">'+
+      '<div class="reason"><strong>AIの整理内容：</strong> '+escHtml(reason)+'</div>'+
+      '<div class="formatted">'+html+'</div>'+
+      '<div class="format-actions">'+
+      '<button class="btn-primary" onclick="approveFormat(\''+escAttr(sheetName)+'\')">承認する</button>'+
+      '<button class="btn-secondary" onclick="rejectFormat(\''+escAttr(sheetName)+'\')">却下（元に戻す）</button>'+
+      '</div></div>';
+    // Store pending format
+    body.setAttribute('data-pending-html',html);
+    body.setAttribute('data-pending-reason',reason);
+  });
+}
+
+async function approveFormat(sheetName){
+  var sections=document.querySelectorAll('.section');
+  var pendingHtml='',pendingReason='';
+  sections.forEach(function(sec){
+    var h3=sec.querySelector('h3');
+    if(!h3||h3.textContent.indexOf(sheetName)<0)return;
+    var body=sec.querySelector('.section-body');
+    pendingHtml=body.getAttribute('data-pending-html')||'';
+    pendingReason=body.getAttribute('data-pending-reason')||'';
+  });
+  if(!pendingHtml)return;
+
+  // Save to Guide_Formatted sheet
+  try{
+    var meta=await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+orgConfig.spreadsheetId+'?fields=sheets(properties(title))');
+    var exists=meta.sheets.some(function(s){return s.properties.title===FORMATTED_SHEET;});
+    if(!exists){
+      await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+orgConfig.spreadsheetId+':batchUpdate',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({requests:[{addSheet:{properties:{title:FORMATTED_SHEET}}}]})
+      });
+      await apiFetch(
+        'https://sheets.googleapis.com/v4/spreadsheets/'+orgConfig.spreadsheetId+
+        '/values/'+encodeURIComponent(FORMATTED_SHEET)+'!A1:E1?valueInputOption=USER_ENTERED',
+        {method:'PUT',headers:{'Content-Type':'application/json'},
+         body:JSON.stringify({values:[['シート名','HTML','整理内容','ステータス','更新日時']]})}
+      );
+    }
+
+    // Check if this sheet already has a row, update or append
+    var existing=await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+orgConfig.spreadsheetId+'/values/'+encodeURIComponent(FORMATTED_SHEET)+'!A:A');
+    var rowIdx=-1;
+    if(existing.values){
+      for(var i=0;i<existing.values.length;i++){
+        if(existing.values[i][0]===sheetName){rowIdx=i+1;break;}
+      }
+    }
+
+    var now=new Date().toLocaleString('ja-JP');
+    var values=[[sheetName,pendingHtml,pendingReason,'approved',now]];
+
+    if(rowIdx>0){
+      await apiFetch(
+        'https://sheets.googleapis.com/v4/spreadsheets/'+orgConfig.spreadsheetId+
+        '/values/'+encodeURIComponent(FORMATTED_SHEET)+'!A'+rowIdx+':E'+rowIdx+'?valueInputOption=USER_ENTERED',
+        {method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:values})}
+      );
+    }else{
+      await apiFetch(
+        'https://sheets.googleapis.com/v4/spreadsheets/'+orgConfig.spreadsheetId+
+        '/values/'+encodeURIComponent(FORMATTED_SHEET)+'!A:E:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS',
+        {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:values})}
+      );
+    }
+
+    // Update local state
+    formattedSheets[sheetName]={html:pendingHtml,reason:pendingReason};
+    renderBrowse();
+  }catch(e){alert('保存エラー: '+e.message);}
+}
+
+function rejectFormat(sheetName){
+  renderBrowse();
 }
 
 // ---- UI helpers ----
