@@ -278,6 +278,7 @@ var CLIENT_ID='595564106580-hsrunbvfacmr23d2jopl462taqilip75.apps.googleusercont
 var SCOPES='openid email profile https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/generative-language.retriever';
 var CONFIG_FILENAME='choreia-guide-config.json';
 var QA_SHEET='Guide_QA';
+var CONFIG_SHEET='Guide_Config';
 var BLOCKED_DOMAINS=['gmail.com','googlemail.com','yahoo.co.jp','yahoo.com','hotmail.com','outlook.com','outlook.jp','icloud.com','aol.com','protonmail.com','zoho.com','mail.com','yandex.com','live.com','live.jp','msn.com','me.com','mac.com'];
 var GEMINI_MODELS=['gemini-2.5-flash','gemini-2.0-flash','gemini-1.5-flash'];
 
@@ -469,9 +470,11 @@ async function loadSpreadsheetData(){
 
     var allText='';
     var qaData=null;
+    var configData=null;
     data.valueRanges.forEach(function(vr,i){
       var name=sheetNames[i];
       if(name===QA_SHEET){qaData=vr.values||[];return;}
+      if(name===CONFIG_SHEET){configData=vr.values||[];return;}
       allText+='\n\n=== '+name+' ===\n';
       if(vr.values){
         vr.values.forEach(function(row){
@@ -482,6 +485,18 @@ async function loadSpreadsheetData(){
     });
     rulesText=allText.trim();
 
+    // Load admin list from Guide_Config sheet
+    if(configData&&configData.length>1){
+      for(var i=1;i<configData.length;i++){
+        var row=configData[i];
+        if(row[0]==='admins'&&row[1]){
+          orgConfig.admins=row[1].split(',').map(function(e){return e.trim();}).filter(Boolean);
+        }
+      }
+    }
+    // Save updated config to localStorage
+    localStorage.setItem('choreia_guide_config_'+currentUser.domain,JSON.stringify(orgConfig));
+
     // Load confirmed Q&A
     confirmedQA=[];
     if(qaData&&qaData.length>1){
@@ -491,9 +506,11 @@ async function loadSpreadsheetData(){
       }
     }
 
-    var sheetCount=sheetNames.filter(function(n){return n!==QA_SHEET;}).length;
-    setStatus('rulesStatus',sheetCount+'シート / '+rulesText.length.toLocaleString()+'文字'+
-      (confirmedQA.length?' / 確定Q&A: '+confirmedQA.length+'件':''),'success');
+    var sheetCount=sheetNames.filter(function(n){return n!==QA_SHEET&&n!==CONFIG_SHEET;}).length;
+    var statusParts=[];
+    if(confirmedQA.length)statusParts.push('確定Q&A: '+confirmedQA.length+'件');
+    if(statusParts.length)setStatus('rulesStatus',statusParts.join(' / '),'success');
+    else document.getElementById('rulesStatus').innerHTML='';
 
     // Enable chat
     document.getElementById('chatInput').disabled=false;
@@ -693,7 +710,7 @@ async function addAdmin(){
   if(admins.indexOf(email)>=0)return;
   admins.push(email);
   orgConfig.admins=admins;
-  await saveOrgConfig();
+  await saveAdminsToSheet();
   document.getElementById('newAdminEmail').value='';
   renderAdminList();
 }
@@ -701,8 +718,47 @@ async function addAdmin(){
 async function removeAdmin(email){
   var admins=orgConfig.admins||[];
   orgConfig.admins=admins.filter(function(e){return e!==email;});
-  await saveOrgConfig();
+  await saveAdminsToSheet();
   renderAdminList();
+}
+
+async function saveAdminsToSheet(){
+  // Save to localStorage
+  localStorage.setItem('choreia_guide_config_'+currentUser.domain,JSON.stringify(orgConfig));
+  // Save to Guide_Config sheet
+  try{
+    await ensureConfigSheet();
+    var adminsStr=(orgConfig.admins||[]).join(',');
+    await apiFetch(
+      'https://sheets.googleapis.com/v4/spreadsheets/'+orgConfig.spreadsheetId+
+      '/values/'+encodeURIComponent(CONFIG_SHEET)+'!A2:B2?valueInputOption=USER_ENTERED',
+      {method:'PUT',headers:{'Content-Type':'application/json'},
+       body:JSON.stringify({values:[['admins',adminsStr]]})}
+    );
+  }catch(e){console.error('saveAdminsToSheet error:',e);}
+}
+
+var configSheetEnsured=false;
+async function ensureConfigSheet(){
+  if(configSheetEnsured)return;
+  try{
+    var meta=await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+orgConfig.spreadsheetId+'?fields=sheets(properties(title))');
+    var exists=meta.sheets.some(function(s){return s.properties.title===CONFIG_SHEET;});
+    if(!exists){
+      await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+orgConfig.spreadsheetId+':batchUpdate',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({requests:[{addSheet:{properties:{title:CONFIG_SHEET}}}]})
+      });
+      var adminsStr=(orgConfig.admins||[currentUser.email]).join(',');
+      await apiFetch(
+        'https://sheets.googleapis.com/v4/spreadsheets/'+orgConfig.spreadsheetId+
+        '/values/'+encodeURIComponent(CONFIG_SHEET)+'!A1:B2?valueInputOption=USER_ENTERED',
+        {method:'PUT',headers:{'Content-Type':'application/json'},
+         body:JSON.stringify({values:[['key','value'],['admins',adminsStr]]})}
+      );
+    }
+    configSheetEnsured=true;
+  }catch(e){console.error('ensureConfigSheet error:',e);}
 }
 
 async function updateSheetUrl(){
@@ -714,8 +770,9 @@ async function updateSheetUrl(){
     await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+sid+'?fields=sheets(properties(title))');
     orgConfig.spreadsheetId=sid;
     orgConfig.spreadsheetUrl=url;
-    await saveOrgConfig();
+    localStorage.setItem('choreia_guide_config_'+currentUser.domain,JSON.stringify(orgConfig));
     qaSheetEnsured=false;
+    configSheetEnsured=false;
     await loadSpreadsheetData();
     alert('スプレッドシートを変更しました');
   }catch(e){alert('エラー: '+e.message);}
@@ -725,10 +782,6 @@ async function resetOrg(){
   if(!confirm('組織設定をリセットしますか？'))return;
   localStorage.removeItem('choreia_guide_config_'+currentUser.domain);
   location.reload();
-}
-
-function saveOrgConfig(){
-  localStorage.setItem('choreia_guide_config_'+currentUser.domain,JSON.stringify(orgConfig));
 }
 
 // ---- UI helpers ----
