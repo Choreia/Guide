@@ -146,6 +146,27 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",sans
 .spinner{width:40px;height:40px;border:3px solid #ece6de;border-top-color:#a0522d;border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 16px}
 @keyframes spin{to{transform:rotate(360deg)}}
 
+/* Browse */
+.browse-search{margin-bottom:16px}
+.browse-search input{width:100%;padding:10px 16px;border:1px solid #d4cdc2;border-radius:24px;font-size:.9em;font-family:inherit;background:#fff}
+.browse-search input:focus{outline:none;border-color:#a0522d}
+.section{margin-bottom:12px}
+.section-header{display:flex;align-items:center;gap:10px;padding:14px 16px;background:#fff;border-radius:12px;cursor:pointer;box-shadow:0 1px 4px rgba(44,36,24,.06);transition:all .15s;user-select:none}
+.section-header:hover{background:#fdf5f0}
+.section-header .arrow{font-size:.7em;color:#a0522d;transition:transform .2s;flex-shrink:0}
+.section-header.open .arrow{transform:rotate(90deg)}
+.section-header .icon{font-size:1.1em}
+.section-header h3{flex:1;font-size:.95em;color:#5a3e28;margin:0}
+.section-header .count{font-size:.75em;color:#8a7e6e}
+.section-body{display:none;padding:12px 16px;background:#fff;border-radius:0 0 12px 12px;margin-top:-8px;box-shadow:0 1px 4px rgba(44,36,24,.06)}
+.section-body.open{display:block}
+.rule-row{padding:8px 0;border-bottom:1px solid #f0ebe4;font-size:.85em;line-height:1.7;color:#3c3225}
+.rule-row:last-child{border-bottom:none}
+.rule-row .label{font-weight:600;color:#a0522d;margin-right:6px}
+.rule-row a{color:#a0522d;word-break:break-all}
+.browse-empty{text-align:center;padding:32px 16px;color:#8a7e6e;font-size:.9em}
+.highlight{background:#fff3cd;padding:1px 2px;border-radius:2px}
+
 footer{text-align:center;padding:24px 16px;color:#8a7e6e;font-size:.8em}
 footer a{color:#a0522d;text-decoration:none}
 footer a:hover{text-decoration:underline}
@@ -203,15 +224,23 @@ footer a:hover{text-decoration:underline}
     <div class="org-bar" id="orgBar"></div>
 
     <div class="tabs" id="mainTabs">
-      <button class="tab active" onclick="switchTab('chat')">質問する</button>
-      <button class="tab" onclick="switchTab('qa')">Q&A管理</button>
+      <button class="tab" onclick="switchTab('browse')">ルール閲覧</button>
+      <button class="tab active" onclick="switchTab('chat')">AIに質問</button>
+      <button class="tab" onclick="switchTab('qa')">Q&A</button>
       <button class="tab" onclick="switchTab('admin')" id="tabAdmin" style="display:none">設定</button>
+    </div>
+
+    <!-- Browse tab -->
+    <div class="view" id="tabBrowse">
+      <div class="browse-search">
+        <input type="text" id="browseSearch" placeholder="キーワードで絞り込み..." oninput="filterBrowse()">
+      </div>
+      <div id="browseContent"></div>
     </div>
 
     <!-- Chat tab -->
     <div class="view active" id="tabChat">
       <div id="rulesStatus"></div>
-      <div class="sheet-tabs" id="sheetTabs"></div>
       <div class="chat-area" id="chatArea">
         <div class="welcome-chat" id="welcomeChat">
           <div class="icon">&#128172;</div>
@@ -287,6 +316,7 @@ var tokenClient=null,accessToken=null;
 var currentUser={email:'',name:'',domain:'',photo:''};
 var orgConfig=null; // {domain,admin,admins,spreadsheetId,spreadsheetUrl,folderId,driveId,driveName,createdAt}
 var rulesText='';
+var sheetsData=[]; // {name, rows:[]} for browse view
 var sheetNames=[];
 var confirmedQA=[];
 var chatHistory=[];
@@ -436,7 +466,7 @@ function isAdmin(){
 
 // ---- Tab switching ----
 function switchTab(name){
-  ['chat','qa','adminContent'].forEach(function(t){
+  ['browse','chat','qa','adminContent'].forEach(function(t){
     var el=document.getElementById('tab'+t.charAt(0).toUpperCase()+t.slice(1));
     if(el)el.classList.remove('active');
   });
@@ -445,7 +475,7 @@ function switchTab(name){
 
   document.querySelectorAll('.tabs .tab').forEach(function(t){t.classList.remove('active');});
   var tabs=document.querySelectorAll('.tabs .tab');
-  var idx={chat:0,qa:1,admin:2}[name]||0;
+  var idx={browse:0,chat:1,qa:2,admin:3}[name]||0;
   if(tabs[idx])tabs[idx].classList.add('active');
 }
 
@@ -458,11 +488,6 @@ async function loadSpreadsheetData(){
     var meta=await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+orgConfig.spreadsheetId+'?fields=sheets(properties(title))');
     sheetNames=meta.sheets.map(function(s){return s.properties.title;});
 
-    // Show sheet tabs
-    document.getElementById('sheetTabs').innerHTML=sheetNames.filter(function(n){return n!==QA_SHEET;}).map(function(name){
-      return'<span class="sheet-tab">'+escHtml(name)+'</span>';
-    }).join('');
-
     // Batch read all sheets
     var ranges=sheetNames.map(function(name){return encodeURIComponent(name)+'!A:Z';});
     var batchUrl='https://sheets.googleapis.com/v4/spreadsheets/'+orgConfig.spreadsheetId+'/values:batchGet?ranges='+ranges.join('&ranges=');
@@ -471,17 +496,20 @@ async function loadSpreadsheetData(){
     var allText='';
     var qaData=null;
     var configData=null;
+    sheetsData=[];
     data.valueRanges.forEach(function(vr,i){
       var name=sheetNames[i];
       if(name===QA_SHEET){qaData=vr.values||[];return;}
       if(name===CONFIG_SHEET){configData=vr.values||[];return;}
+      var rows=[];
       allText+='\n\n=== '+name+' ===\n';
       if(vr.values){
         vr.values.forEach(function(row){
           var line=row.filter(function(c){return c&&c.toString().trim();}).join(' | ');
-          if(line)allText+=line+'\n';
+          if(line){allText+=line+'\n';rows.push(row);}
         });
       }
+      if(rows.length)sheetsData.push({name:name,rows:rows});
     });
     rulesText=allText.trim();
 
@@ -516,6 +544,9 @@ async function loadSpreadsheetData(){
     document.getElementById('chatInput').disabled=false;
     document.getElementById('btnSend').disabled=false;
     showExamples();
+
+    // Render browse view
+    renderBrowse();
 
     // Show QA log
     if(qaData&&qaData.length>1)renderQALog(qaData);
@@ -782,6 +813,92 @@ async function resetOrg(){
   if(!confirm('組織設定をリセットしますか？'))return;
   localStorage.removeItem('choreia_guide_config_'+currentUser.domain);
   location.reload();
+}
+
+// ---- Browse view ----
+var SHEET_ICONS={'健康診断':'&#127973;','勤怠':'&#128340;','経費':'&#128179;','承認':'&#9989;','有給':'&#127796;','インボイス':'&#128196;','消耗品':'&#128230;','収入印紙':'&#128180;','物流':'&#128666;','電話':'&#128222;','輸入':'&#127758;','インキュベーション':'&#127970;','ﾀｲﾑｽﾞｶｰ':'&#128663;'};
+function getSheetIcon(name){
+  for(var key in SHEET_ICONS){if(name.indexOf(key)>=0)return SHEET_ICONS[key];}
+  return'&#128203;';
+}
+
+function renderBrowse(filter){
+  var container=document.getElementById('browseContent');
+  if(!sheetsData.length){container.innerHTML='<div class="browse-empty">ルールデータがありません</div>';return;}
+
+  var filterLower=(filter||'').toLowerCase();
+  var html='';
+  sheetsData.forEach(function(sheet,idx){
+    // Filter rows
+    var filteredRows=sheet.rows;
+    if(filterLower){
+      filteredRows=sheet.rows.filter(function(row){
+        return row.some(function(cell){return cell&&cell.toString().toLowerCase().indexOf(filterLower)>=0;});
+      });
+      if(!filteredRows.length)return;
+    }
+
+    var icon=getSheetIcon(sheet.name);
+    var isOpen=!!filterLower; // auto-open when filtering
+    html+='<div class="section" data-idx="'+idx+'">';
+    html+='<div class="section-header'+(isOpen?' open':'')+'" onclick="toggleSection(this)">';
+    html+='<span class="arrow">&#9654;</span>';
+    html+='<span class="icon">'+icon+'</span>';
+    html+='<h3>'+escHtml(sheet.name)+'</h3>';
+    html+='<span class="count">'+filteredRows.length+'件</span>';
+    html+='</div>';
+    html+='<div class="section-body'+(isOpen?' open':'')+'">';
+
+    filteredRows.forEach(function(row){
+      var cells=row.filter(function(c){return c&&c.toString().trim();});
+      if(!cells.length)return;
+
+      html+='<div class="rule-row">';
+      // First cell as label if short, rest as content
+      if(cells.length>=2&&cells[0].toString().length<20){
+        var labelText=cells[0].toString();
+        var contentText=cells.slice(1).join(' ');
+        if(filterLower){
+          labelText=highlightText(labelText,filterLower);
+          contentText=highlightText(contentText,filterLower);
+        }
+        html+='<span class="label">'+labelText+'</span>';
+        html+=linkify(contentText);
+      }else{
+        var text=cells.join(' ');
+        if(filterLower)text=highlightText(text,filterLower);
+        html+=linkify(text);
+      }
+      html+='</div>';
+    });
+
+    html+='</div></div>';
+  });
+
+  if(!html)html='<div class="browse-empty">「'+escHtml(filter)+'」に一致するルールはありません</div>';
+  container.innerHTML=html;
+}
+
+function toggleSection(header){
+  header.classList.toggle('open');
+  var body=header.nextElementSibling;
+  body.classList.toggle('open');
+}
+
+function filterBrowse(){
+  var q=document.getElementById('browseSearch').value.trim();
+  renderBrowse(q);
+}
+
+function highlightText(text,query){
+  if(!query)return escHtml(text);
+  var escaped=escHtml(text);
+  var re=new RegExp('('+query.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi');
+  return escaped.replace(re,'<span class="highlight">$1</span>');
+}
+
+function linkify(text){
+  return text.replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>');
 }
 
 // ---- UI helpers ----
