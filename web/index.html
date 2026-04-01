@@ -1709,7 +1709,10 @@ async function approveFormat(sheetName){
   var jsonStr=JSON.stringify(pending.items);
   var pendingReason=pending.reason;
 
-  // Save to Guide_Formatted sheet
+  // Show saving state
+  var actions=document.querySelector('.format-actions');
+  if(actions)actions.innerHTML='<div style="padding:14px;font-size:1em;color:#a0522d;font-weight:600"><span class="spinner" style="display:inline-block;width:20px;height:20px;vertical-align:middle;margin-right:8px;border-width:2px"></span>保存中...</div>';
+
   try{
     var meta=await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+orgConfig.spreadsheetId+'?fields=sheets(properties(title))');
     var exists=meta.sheets.some(function(s){return s.properties.title===FORMATTED_SHEET;});
@@ -1755,11 +1758,21 @@ async function approveFormat(sheetName){
     // Update local state
     formattedSheets[sheetName]={data:pending.items,reason:pendingReason};
     delete pendingFormatData[sheetName];
+
+    // Show success toast
+    var toast=document.createElement('div');
+    toast.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#2e7d32;color:#fff;padding:20px 40px;border-radius:16px;font-size:1.1em;font-weight:600;z-index:200;box-shadow:0 8px 30px rgba(0,0,0,.3)';
+    toast.textContent='✓ 承認しました';
+    document.body.appendChild(toast);
+    setTimeout(function(){toast.remove();renderBrowse();},1500);
+  }catch(e){
+    alert('保存エラー: '+e.message);
     renderBrowse();
-  }catch(e){alert('保存エラー: '+e.message);}
+  }
 }
 
 function rejectFormat(sheetName){
+  delete pendingFormatData[sheetName];
   renderBrowse();
 }
 
