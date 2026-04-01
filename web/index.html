@@ -340,6 +340,14 @@ footer a:hover{text-decoration:underline}
           </div>
         </div>
         <div class="admin-panel">
+          <h3>Gemini APIキー</h3>
+          <p style="font-size:.8em;color:#8a7e6e;margin-bottom:8px">AI機能に必要です。<a href="https://aistudio.google.com/apikey" target="_blank">Google AI Studio</a>で取得できます。</p>
+          <div class="admin-row">
+            <input type="password" id="adminApiKey" placeholder="APIキーを入力">
+            <button class="btn-secondary" onclick="saveApiKey()">保存</button>
+          </div>
+        </div>
+        <div class="admin-panel">
           <h3>危険な操作</h3>
           <button class="btn-secondary" onclick="resetOrg()" style="color:#c62828;border-color:#c62828">組織設定をリセット</button>
         </div>
@@ -364,7 +372,7 @@ var QA_SHEET='Guide_QA';
 var CONFIG_SHEET='Guide_Config';
 var FORMATTED_SHEET='Guide_Formatted';
 var BLOCKED_DOMAINS=['gmail.com','googlemail.com','yahoo.co.jp','yahoo.com','hotmail.com','outlook.com','outlook.jp','icloud.com','aol.com','protonmail.com','zoho.com','mail.com','yandex.com','live.com','live.jp','msn.com','me.com','mac.com'];
-var GEMINI_API_KEY='AIzaSyAKb71kDrNYtHAUFsIsiz6D77RlcnE8uDA';
+var GEMINI_API_KEY=''; // loaded from Guide_Config sheet
 var GEMINI_MODELS=['gemini-2.0-flash','gemini-2.0-flash-lite','gemini-1.5-flash'];
 
 // ---- State ----
@@ -510,6 +518,7 @@ async function showMainView(){
     document.getElementById('tabAdmin').style.display='';
     document.getElementById('tabSuggestBtn').style.display='';
     document.getElementById('adminSheetUrl').value=orgConfig.spreadsheetUrl||'';
+    if(GEMINI_API_KEY)document.getElementById('adminApiKey').value=GEMINI_API_KEY;
     renderAdminList();
   }
 
@@ -595,6 +604,9 @@ async function loadSpreadsheetData(){
           orgConfig.admins=val.split(',').map(function(e){return e.trim();}).filter(Boolean);
         }
         // Check if key is current user's email -> val is affiliation
+        if(key==='gemini_api_key'&&val){
+          GEMINI_API_KEY=val;
+        }
         if(key.toLowerCase()===currentUser.email.toLowerCase()&&val){
           userAffiliation=val.toUpperCase();
         }
@@ -663,7 +675,10 @@ async function sendMessage(){
     var confirmed=findConfirmedAnswer(q);
     var answer,confidence;
     if(confirmed){answer=confirmed;confidence=1.0;}
-    else{var result=await callGemini(q);answer=result.answer;confidence=result.confidence;}
+    else if(!GEMINI_API_KEY){
+      removeTyping();addMsg('ai','AI機能を使うには、管理者がAPIキーを設定する必要があります。');
+      input.disabled=false;document.getElementById('btnSend').disabled=false;input.focus();return;
+    }else{var result=await callGemini(q);answer=result.answer;confidence=result.confidence;}
 
     removeTyping();
     var isUncertain=confidence<0.7;
@@ -925,6 +940,38 @@ async function updateSheetUrl(){
     configSheetEnsured=false;
     await loadSpreadsheetData();
     alert('スプレッドシートを変更しました');
+  }catch(e){alert('エラー: '+e.message);}
+}
+
+async function saveApiKey(){
+  var key=document.getElementById('adminApiKey').value.trim();
+  if(!key)return;
+  GEMINI_API_KEY=key;
+  try{
+    await ensureConfigSheet();
+    // Check if gemini_api_key row exists
+    var data=await apiFetch('https://sheets.googleapis.com/v4/spreadsheets/'+orgConfig.spreadsheetId+'/values/'+encodeURIComponent(CONFIG_SHEET)+'!A:B');
+    var rows=data.values||[];
+    var rowIdx=-1;
+    for(var i=0;i<rows.length;i++){
+      if(rows[i][0]==='gemini_api_key'){rowIdx=i+1;break;}
+    }
+    if(rowIdx>0){
+      await apiFetch(
+        'https://sheets.googleapis.com/v4/spreadsheets/'+orgConfig.spreadsheetId+
+        '/values/'+encodeURIComponent(CONFIG_SHEET)+'!A'+rowIdx+':B'+rowIdx+'?valueInputOption=USER_ENTERED',
+        {method:'PUT',headers:{'Content-Type':'application/json'},
+         body:JSON.stringify({values:[['gemini_api_key',key]]})}
+      );
+    }else{
+      await apiFetch(
+        'https://sheets.googleapis.com/v4/spreadsheets/'+orgConfig.spreadsheetId+
+        '/values/'+encodeURIComponent(CONFIG_SHEET)+'!A:B:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS',
+        {method:'POST',headers:{'Content-Type':'application/json'},
+         body:JSON.stringify({values:[['gemini_api_key',key]]})}
+      );
+    }
+    alert('APIキーを保存しました');
   }catch(e){alert('エラー: '+e.message);}
 }
 
