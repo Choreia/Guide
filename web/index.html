@@ -331,6 +331,7 @@ var sheetNames=[];
 var confirmedQA=[];
 var chatHistory=[];
 var qaSheetEnsured=false;
+var userAffiliation=''; // 'VB' or 'M2', loaded from config or domain
 
 
 // ---- Auth ----
@@ -524,15 +525,24 @@ async function loadSpreadsheetData(){
     });
     rulesText=allText.trim();
 
-    // Load admin list from Guide_Config sheet
+    // Load admin list and user affiliations from Guide_Config sheet
     if(configData&&configData.length>1){
       for(var i=1;i<configData.length;i++){
         var row=configData[i];
-        if(row[0]==='admins'&&row[1]){
-          orgConfig.admins=row[1].split(',').map(function(e){return e.trim();}).filter(Boolean);
+        if(!row[0])continue;
+        var key=row[0].toString().trim();
+        var val=(row[1]||'').toString().trim();
+        if(key==='admins'&&val){
+          orgConfig.admins=val.split(',').map(function(e){return e.trim();}).filter(Boolean);
+        }
+        // Check if key is current user's email -> val is affiliation
+        if(key.toLowerCase()===currentUser.email.toLowerCase()&&val){
+          userAffiliation=val.toUpperCase();
         }
       }
     }
+    // Fallback: detect from domain
+    if(!userAffiliation)userAffiliation=detectAffiliationFromDomain();
     // Save updated config to localStorage
     localStorage.setItem('choreia_guide_config_'+currentUser.domain,JSON.stringify(orgConfig));
 
@@ -833,13 +843,47 @@ function getSheetIcon(name){
   return'&#128203;';
 }
 
+function detectAffiliationFromDomain(){
+  var d=currentUser.domain.toLowerCase();
+  if(d.indexOf('vegibus')>=0||d.indexOf('yasaibus')>=0)return'VB';
+  if(d.indexOf('m2')>=0||d.indexOf('m2labo')>=0||d.indexOf('m2-labo')>=0)return'M2';
+  return'';
+}
+function getUserAffiliation(){
+  return userAffiliation||detectAffiliationFromDomain();
+}
+
+function getSheetRelevance(name,affil){
+  var n=name.toUpperCase();
+  var hasVB=n.indexOf('VB')>=0||n.indexOf('ﾔｻｲﾊﾞｽ')>=0||n.indexOf('やさいバス')>=0;
+  var hasM2=n.indexOf('M2')>=0||n.indexOf('ｴﾑｽｸｴｱ')>=0||n.indexOf('エムスクエア')>=0;
+  // Exact match: user's company
+  if(affil==='VB'&&hasVB)return 0;
+  if(affil==='M2'&&hasM2)return 0;
+  // Neutral (shared): 健康診断, 有給, etc.
+  if(!hasVB&&!hasM2)return 1;
+  // Other company
+  if(affil==='VB'&&hasM2)return 2;
+  if(affil==='M2'&&hasVB)return 2;
+  return 1;
+}
+
+function sortSheets(sheets){
+  var affil=getUserAffiliation();
+  if(!affil)return sheets;
+  return sheets.slice().sort(function(a,b){
+    return getSheetRelevance(a.name,affil)-getSheetRelevance(b.name,affil);
+  });
+}
+
 function renderBrowse(filter){
   var container=document.getElementById('browseContent');
   if(!sheetsData.length){container.innerHTML='<div class="browse-empty">ルールデータがありません</div>';return;}
 
+  var sorted=sortSheets(sheetsData);
   var filterLower=(filter||'').toLowerCase();
   var html='';
-  sheetsData.forEach(function(sheet,idx){
+  sorted.forEach(function(sheet,idx){
     // Filter rows
     var filteredRows=sheet.rows;
     if(filterLower){
